@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,9 +12,9 @@ import { LoanCard } from '@/components/loan-card';
 import { colors, radii, shadow, spacing, type } from '@/constants/theme';
 import { useResponsive } from '@/hooks/use-responsive';
 import { api, ApiError } from '@/lib/api';
-import { confirmAction, notify } from '@/lib/confirm';
 import { formatCurrency } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
+import { useInteraction } from '@/providers/interaction-provider';
 
 type Filter = 'ALL' | 'OUTSTANDING' | 'REPAID';
 const FILTERS: Filter[] = ['ALL', 'OUTSTANDING', 'REPAID'];
@@ -23,31 +23,25 @@ const filterLabel = (f: Filter) => (f === 'OUTSTANDING' ? 'Active' : f === 'ALL'
 export default function DashboardScreen() {
   const queryClient = useQueryClient();
   const { signOut } = useAuth();
+  const { confirm, notify } = useInteraction();
   const { isDesktop } = useResponsive();
   const [filter, setFilter] = useState<Filter>('ALL');
-  const [notice, setNotice] = useState<string | null>(null);
   const repaymentsInFlight = useRef(new Set<string>());
   const loansQuery = useQuery({ queryKey: ['loans'], queryFn: ({ signal }) => api.loans(signal) });
   const summaryQuery = useQuery({ queryKey: ['summary'], queryFn: ({ signal }) => api.summary(signal) });
   const repay = useMutation({
     mutationFn: api.repayLoan,
     onSuccess: async (result) => {
-      setNotice(`${result.loan.friendName}’s loan is settled.`);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['loans'] }),
         queryClient.invalidateQueries({ queryKey: ['summary'] }),
         queryClient.invalidateQueries({ queryKey: ['loan', result.loan.id] }),
       ]);
+      notify({ tone: 'success', title: 'Repayment recorded', message: `${result.loan.friendName}’s loan is settled.` });
     },
-    onError: (error) => notify('Couldn’t update loan', error instanceof ApiError ? error.message : 'Please try again.'),
+    onError: (error) => notify({ tone: 'error', title: 'Couldn’t update loan', message: error instanceof ApiError ? error.message : 'Please try again.' }),
     onSettled: (_data, _error, loanId) => { repaymentsInFlight.current.delete(loanId); },
   });
-
-  useEffect(() => {
-    if (!notice) return;
-    const timer = setTimeout(() => setNotice(null), 3000);
-    return () => clearTimeout(timer);
-  }, [notice]);
 
   const filtered = useMemo(() => {
     const loans = loansQuery.data?.loans ?? [];
@@ -55,12 +49,12 @@ export default function DashboardScreen() {
   }, [loansQuery.data, filter]);
 
   const refresh = async () => Promise.all([loansQuery.refetch(), summaryQuery.refetch()]);
-  const confirmRepay = (loan: Loan) => confirmAction(
-    { title: 'Mark as repaid?', message: `Confirm that ${loan.friendName} returned ${formatCurrency(loan.amount)}. This will update your totals immediately.`, confirmLabel: 'Mark repaid' },
-    () => {
+  const confirmRepay = (loan: Loan) => confirm(
+    { title: 'Mark as repaid?', message: `Confirm that ${loan.friendName} returned ${formatCurrency(loan.amount)}. This will update your totals immediately.`, confirmLabel: 'Mark repaid', pendingLabel: 'Marking as repaid…' },
+    async () => {
       if (repaymentsInFlight.current.has(loan.id)) return;
       repaymentsInFlight.current.add(loan.id);
-      repay.mutate(loan.id);
+      await repay.mutateAsync(loan.id);
     },
   );
 
@@ -69,12 +63,11 @@ export default function DashboardScreen() {
   const totalCount = loansQuery.data?.loans.length ?? 0;
 
   const onAdd = () => router.push('/(app)/add-loan');
-  const onSignOut = () => confirmAction({ title: 'Sign out?', message: 'Your private ledger will be removed from this device.', confirmLabel: 'Sign out', destructive: true }, () => void signOut());
+  const onSignOut = () => confirm({ title: 'Sign out?', message: 'Your private ledger will be removed from this device.', confirmLabel: 'Sign out', pendingLabel: 'Signing out…', destructive: true }, signOut);
 
   const overview = (
     <>
       {summaryQuery.data ? <FadeInView delay={60}><SummaryPanel summary={summaryQuery.data} /></FadeInView> : summaryQuery.isLoading ? <SummarySkeleton /> : null}
-      {!!notice && <FadeInView key={notice} style={styles.notice}><View style={styles.noticeRow} accessibilityRole="alert" accessibilityLiveRegion="polite"><Ionicons name="checkmark-circle" size={19} color={colors.success} /><Text style={styles.noticeText}>{notice}</Text></View></FadeInView>}
     </>
   );
 
@@ -285,9 +278,6 @@ const styles = StyleSheet.create({
   overdueCallout: { marginTop: spacing.lg, backgroundColor: colors.dangerSoft, borderRadius: radii.sm, paddingHorizontal: spacing.sm, minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 7 },
   alertDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.danger },
   overdueCalloutText: { ...type.caption, color: '#FFB4B4', flex: 1 },
-  notice: { backgroundColor: colors.successSoft, borderWidth: 1, borderColor: colors.successLine, borderRadius: radii.md, padding: spacing.sm },
-  noticeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  noticeText: { ...type.caption, color: colors.success },
   sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: spacing.sm },
   sectionTitle: { ...type.h2, color: colors.ink },
   sectionMeta: { ...type.caption, color: colors.muted },

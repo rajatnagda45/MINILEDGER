@@ -1,6 +1,6 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import VerifyScreen from '@/app/(auth)/verify';
-import { ApiError } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { TestQueryProvider } from './test-utils';
 
 const mockSignIn = jest.fn();
@@ -9,6 +9,12 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ phone: '+919876543210', resend: '0' }),
 }));
 jest.mock('@/providers/auth-provider', () => ({ useAuth: () => ({ signIn: mockSignIn }) }));
+jest.mock('@/lib/api', () => {
+  const actual = jest.requireActual('@/lib/api');
+  return { ...actual, api: { ...actual.api, sendOtp: jest.fn() } };
+});
+
+const sendOtp = api.sendOtp as jest.MockedFunction<typeof api.sendOtp>;
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -20,8 +26,8 @@ async function flushQueryNotifications() {
 
 it('keeps verification disabled until six digits are entered', async () => {
   const screen = await render(<VerifyScreen />, { wrapper: TestQueryProvider });
-  const button = screen.getByText('Verify & open ledger').parent!;
-  expect(button.props.accessibilityState.disabled).toBe(true);
+  const button = screen.getByLabelText('Verify & open ledger');
+  expect(button).toBeDisabled();
   await fireEvent.changeText(screen.getByLabelText('Six-digit verification code'), '12345');
   await fireEvent.press(button);
   expect(mockSignIn).not.toHaveBeenCalled();
@@ -55,4 +61,19 @@ it('completes successful OTP authentication without showing an error', async () 
   await waitFor(() => expect(screen.getByLabelText('Verify & open ledger')).not.toBeDisabled());
   await flushQueryNotifications();
   expect(screen.queryByText('That code is incorrect.')).toBeNull();
+});
+
+it('prevents duplicate resend requests and restores the action after failure', async () => {
+  let fail!: (error: Error) => void;
+  sendOtp.mockReturnValue(new Promise((_resolve, reject) => { fail = reject; }));
+  const screen = await render(<VerifyScreen />, { wrapper: TestQueryProvider });
+  const resend = screen.getByLabelText('Resend code');
+  await fireEvent.press(resend);
+  await fireEvent.press(resend);
+  expect(sendOtp).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(screen.getByLabelText('Sending code…')).toBeDisabled());
+
+  await act(async () => { fail(new ApiError(503, 'UNAVAILABLE', 'Please try again.')); });
+  expect(await screen.findByText('Please try again.')).toBeTruthy();
+  expect(screen.getByLabelText('Resend code')).not.toBeDisabled();
 });

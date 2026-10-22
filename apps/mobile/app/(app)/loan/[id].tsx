@@ -9,20 +9,22 @@ import { ReceiptSection } from '@/components/receipt-section';
 import { ErrorState, LoadingState } from '@/components/state-view';
 import { colors, radii, shadow, spacing, type } from '@/constants/theme';
 import { api, ApiError } from '@/lib/api';
-import { confirmAction, notify } from '@/lib/confirm';
 import { formatCurrency, formatDate, initials } from '@/lib/format';
+import { useInteraction } from '@/providers/interaction-provider';
 
 export default function LoanDetailScreen() {
   const { id = '' } = useLocalSearchParams<{ id: string }>();
   const queryClient = useQueryClient();
+  const { confirm, notify } = useInteraction();
   const repaymentInFlight = useRef(false);
   const query = useQuery({ queryKey: ['loan', id], queryFn: ({ signal }) => api.loan(id, signal), enabled: Boolean(id) });
   const repay = useMutation({
     mutationFn: () => api.repayLoan(id),
     onSuccess: async () => {
       await Promise.all([queryClient.invalidateQueries({ queryKey: ['loan', id] }), queryClient.invalidateQueries({ queryKey: ['loans'] }), queryClient.invalidateQueries({ queryKey: ['summary'] })]);
+      notify({ tone: 'success', title: 'Repayment recorded', message: query.data?.loan.friendName ? `${query.data.loan.friendName}’s loan is settled.` : 'This loan is now settled.' });
     },
-    onError: (error) => notify('Couldn’t update loan', error instanceof ApiError ? error.message : 'Please try again.'),
+    onError: (error) => notify({ tone: 'error', title: 'Couldn’t update loan', message: error instanceof ApiError ? error.message : 'Please try again.' }),
     onSettled: () => { repaymentInFlight.current = false; },
   });
   const loan = query.data?.loan;
@@ -53,10 +55,10 @@ export default function LoanDetailScreen() {
               {loan.repaidAt && <DetailRow icon="checkmark-circle-outline" label="Repaid on" value={new Date(loan.repaidAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} />}
             </View>
             <ReceiptSection loanId={loan.id} receipt={loan.receipt} />
-            {loan.status === 'OUTSTANDING' && <Button label="Mark as repaid" loading={repay.isPending} onPress={() => confirmAction({ title: 'Confirm repayment', message: `Did ${loan.friendName} return ${formatCurrency(loan.amount)}?`, confirmLabel: 'Yes, mark repaid' }, () => {
+            {loan.status === 'OUTSTANDING' && <Button label="Mark as repaid" loadingLabel="Marking as repaid…" loading={repay.isPending} onPress={() => confirm({ title: 'Confirm repayment', message: `Did ${loan.friendName} return ${formatCurrency(loan.amount)}?`, confirmLabel: 'Yes, mark repaid', pendingLabel: 'Marking as repaid…' }, async () => {
               if (repaymentInFlight.current) return;
               repaymentInFlight.current = true;
-              repay.mutate();
+              await repay.mutateAsync();
             })} />}
             {loan.status === 'REPAID' && <View style={styles.settled}><Ionicons name="shield-checkmark-outline" size={22} color={colors.success} /><View style={styles.settledBody}><Text style={styles.settledTitle}>This loan is settled</Text><Text style={styles.settledCopy}>It no longer contributes to outstanding or overdue totals.</Text></View></View>}
           </>

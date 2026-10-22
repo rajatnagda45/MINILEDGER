@@ -4,17 +4,15 @@ import { router } from 'expo-router';
 import type { Loan } from '@miniledger/shared';
 import AddLoanScreen from '@/app/(app)/add-loan';
 import { api, ApiError } from '@/lib/api';
-import { notify } from '@/lib/confirm';
 import { createTestClient, TestQueryProvider } from './test-utils';
 
-jest.mock('expo-router', () => ({ router: { back: jest.fn() }, useNavigation: () => ({ dispatch: jest.fn() }) }));
+jest.mock('expo-router', () => ({ router: { back: jest.fn(), replace: jest.fn() }, useNavigation: () => ({ dispatch: jest.fn() }) }));
 jest.mock('@react-navigation/native', () => ({ usePreventRemove: jest.fn() }));
 jest.mock('@/components/fade-in-view', () => {
   const { View } = jest.requireActual('react-native');
   return { FadeInView: ({ children, style }: { children: React.ReactNode; style?: object }) => <View style={style}>{children}</View> };
 });
 jest.mock('@/components/receipt-picker', () => ({ ReceiptPicker: () => null }));
-jest.mock('@/lib/confirm', () => ({ confirmAction: jest.fn(), notify: jest.fn() }));
 jest.mock('@/lib/api', () => {
   const actual = jest.requireActual('@/lib/api');
   return { ...actual, api: { ...actual.api, createLoan: jest.fn(), uploadReceipt: jest.fn() } };
@@ -43,44 +41,57 @@ it('rejects invalid amount and date before calling the server', async () => {
   await fireEvent.changeText(screen.getByLabelText('Friend’s name'), 'Riya Shah');
   await fireEvent.changeText(screen.getByLabelText('Amount lent'), '0');
   await fireEvent.changeText(screen.getByLabelText('Due date'), '2026-02-30');
-  await fireEvent.press(screen.getByText('Add to my ledger'));
+  await fireEvent.press(screen.getByText('Add loan'));
 
   expect(await screen.findByText('Amount must be greater than zero.')).toBeTruthy();
   expect(screen.getByText('Choose a valid due date.')).toBeTruthy();
   expect(createLoan).not.toHaveBeenCalled();
 });
 
-it('surfaces server validation errors and does not navigate', async () => {
-  createLoan.mockRejectedValue(new ApiError(422, 'VALIDATION_ERROR', 'The due date is invalid.'));
+it('surfaces server errors, clears loading, and does not navigate', async () => {
+  let fail!: (error: Error) => void;
+  createLoan.mockReturnValue(new Promise((_resolve, reject) => { fail = reject; }));
   const screen = await render(<AddLoanScreen />, { wrapper: TestQueryProvider });
   await fillValid(screen);
-  await fireEvent.press(screen.getByText('Add to my ledger'));
+  await fireEvent.press(screen.getByText('Add loan'));
+
+  const saving = await screen.findByLabelText('Saving loan…');
+  expect(saving).toBeDisabled();
+  expect(saving.props.accessibilityState.busy).toBe(true);
+  await act(async () => { fail(new ApiError(422, 'VALIDATION_ERROR', 'The due date is invalid.')); });
 
   expect(await screen.findByText('The due date is invalid.')).toBeTruthy();
-  expect(notify).not.toHaveBeenCalled();
-  expect(router.back).not.toHaveBeenCalled();
+  expect(screen.getByLabelText('Add loan')).not.toBeDisabled();
+  expect(screen.queryByText('Saving loan…')).toBeNull();
+  expect(router.replace).not.toHaveBeenCalled();
 });
 
-it('creates only once, refreshes all affected queries, and navigates after acknowledgement', async () => {
+it('creates only once, shows an accessible success state, and offers clear next actions', async () => {
   let complete!: (value: { loan: Loan }) => void;
   createLoan.mockReturnValue(new Promise((resolve) => { complete = resolve; }));
   const client = createTestClient();
   const invalidate = jest.spyOn(client, 'invalidateQueries').mockResolvedValue();
   const screen = await render(<TestQueryProvider client={client}><AddLoanScreen /></TestQueryProvider>);
   await fillValid(screen);
-  const submit = screen.getByText('Add to my ledger');
-  await fireEvent.press(submit);
-  await waitFor(() => expect(screen.getByLabelText('Add to my ledger')).toBeDisabled());
-  await fireEvent.press(submit);
+  await fireEvent.press(screen.getByText('Add loan'));
+  const saving = await screen.findByLabelText('Saving loan…');
+  expect(saving).toBeDisabled();
+  await fireEvent.press(saving);
 
   expect(createLoan).toHaveBeenCalledTimes(1);
-  await act(() => complete({ loan: created }));
-  await waitFor(() => expect(notify).toHaveBeenCalledWith('Loan added', 'Riya Shah now appears in your ledger.', expect.any(Function)));
-  await waitFor(() => expect(screen.getByLabelText('Add to my ledger')).not.toBeDisabled());
+  await act(async () => { complete({ loan: created }); });
+  const success = await screen.findByRole('alert');
+  expect(success.props.accessibilityLiveRegion).toBe('polite');
+  expect(await screen.findByRole('status', { name: /Loan added.*Riya Shah now appears in your ledger/i })).toBeTruthy();
+  expect(screen.getAllByText('Loan added')).toHaveLength(2);
+  expect(screen.getAllByText('Riya Shah now appears in your ledger.')).toHaveLength(2);
+  expect(screen.queryByText('Saving loan…')).toBeNull();
   expect(invalidate).toHaveBeenCalledWith({ queryKey: ['loans'] });
   expect(invalidate).toHaveBeenCalledWith({ queryKey: ['summary'] });
   expect(invalidate).toHaveBeenCalledWith({ queryKey: ['loan', 'loan-new'] });
-  const acknowledge = (notify as jest.Mock).mock.calls[0][2] as () => void;
-  acknowledge();
-  expect(router.back).toHaveBeenCalledTimes(1);
+
+  await fireEvent.press(screen.getByText('View loan'));
+  expect(router.replace).toHaveBeenCalledWith({ pathname: '/(app)/loan/[id]', params: { id: 'loan-new' } });
+  await fireEvent.press(screen.getByText('Back to dashboard'));
+  expect(router.replace).toHaveBeenCalledWith('/(app)');
 });

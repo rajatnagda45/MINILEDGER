@@ -34,7 +34,7 @@ it('submits the normalized number once and navigates to OTP verification', async
   await fireEvent.changeText(screen.getByLabelText('Mobile number'), '98765 43210');
   const submit = screen.getByText('Continue securely');
   await fireEvent.press(submit);
-  await waitFor(() => expect(screen.getByLabelText('Continue securely')).toBeDisabled());
+  await waitFor(() => expect(screen.getByLabelText('Sending code…')).toBeDisabled());
   await fireEvent.press(submit);
 
   expect(sendOtp).toHaveBeenCalledTimes(1);

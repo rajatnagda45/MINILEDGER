@@ -15,8 +15,8 @@ import { FormField } from '@/components/form-field';
 import { ReceiptPicker } from '@/components/receipt-picker';
 import { colors, radii, shadow, spacing, type } from '@/constants/theme';
 import { api, ApiError, type ReceiptAsset } from '@/lib/api';
-import { confirmAction, notify } from '@/lib/confirm';
 import { formatDate, isValidIsoDate, toIsoDate } from '@/lib/format';
+import { useInteraction } from '@/providers/interaction-provider';
 
 const schema = z.object({
   friendName: z.string().trim().min(2, 'Enter your friend’s name.').max(80, 'Keep the name under 80 characters.'),
@@ -29,6 +29,7 @@ function initialDueDate() { const date = new Date(); date.setDate(date.getDate()
 
 export default function AddLoanScreen() {
   const queryClient = useQueryClient();
+  const { confirm, notify } = useInteraction();
   const navigation = useNavigation();
   const amountRef = useRef<TextInput>(null);
   const submissionInFlight = useRef(false);
@@ -53,26 +54,34 @@ export default function AddLoanScreen() {
         queryClient.invalidateQueries({ queryKey: ['summary'] }),
         queryClient.invalidateQueries({ queryKey: ['loan', result.loan.id] }),
       ]);
-      const message = result.receiptError
-        ? `${result.loan.friendName} was added, but the receipt didn’t upload: ${result.receiptError} You can attach it from the loan’s details.`
-        : `${result.loan.friendName} now appears in your ledger.`;
-      notify('Loan added', message, () => router.back());
+      notify({
+        tone: 'success',
+        title: 'Loan added',
+        message: `${result.loan.friendName} now appears in your ledger.`,
+      });
     },
   });
   const dueDate = form.watch('dueDate');
   const selectedDate = new Date(`${dueDate}T12:00:00`);
-  const error = mutation.error instanceof ApiError ? mutation.error.message : null;
+  const error = mutation.error instanceof ApiError
+    ? mutation.error.message
+    : mutation.error
+      ? 'We couldn’t save this loan. Please try again.'
+      : null;
   const submit = form.handleSubmit((values) => {
     if (submissionInFlight.current) return;
     submissionInFlight.current = true;
     mutation.mutate(values, { onSettled: () => { submissionInFlight.current = false; } });
   });
   usePreventRemove((form.formState.isDirty || receipt !== null) && !mutation.isSuccess, ({ data }) => {
-    confirmAction(
-      { title: 'Discard this loan?', message: 'Your entered details have not been saved.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', destructive: true },
+    confirm(
+      { title: 'Discard this loan?', message: 'Your entered details have not been saved.', confirmLabel: 'Discard', pendingLabel: 'Discarding…', cancelLabel: 'Keep editing', destructive: true },
       () => navigation.dispatch(data.action),
     );
   });
+  const saved = mutation.data;
+  const viewSavedLoan = () => saved && router.replace({ pathname: '/(app)/loan/[id]', params: { id: saved.loan.id } });
+  const returnToDashboard = () => router.replace('/(app)');
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -84,37 +93,71 @@ export default function AddLoanScreen() {
             <View style={styles.navSpacer} />
           </View>
 
-          <View style={styles.intro}><Text style={styles.introTitle}>Who did you lend to?</Text><Text style={styles.introCopy}>Add the essentials now. You can follow the repayment from your dashboard.</Text></View>
+          <View style={styles.intro}>
+            <Text style={styles.introTitle}>{saved ? 'Loan saved' : 'Who did you lend to?'}</Text>
+            <Text style={styles.introCopy}>{saved ? 'Your ledger and dashboard totals are up to date.' : 'Add the essentials now. You can follow the repayment from your dashboard.'}</Text>
+          </View>
 
-          <FadeInView delay={60} style={styles.formCard}>
-            <Controller control={form.control} name="friendName" render={({ field: { onChange, onBlur, value }, fieldState }) => (
-              <FormField label="Friend’s name" placeholder="e.g. Aarav Sharma" autoCapitalize="words" autoCorrect={false} returnKeyType="next" blurOnSubmit={false} value={value} onChangeText={onChange} onBlur={onBlur} onSubmitEditing={() => amountRef.current?.focus()} error={fieldState.error?.message} />
-            )} />
-            <Controller control={form.control} name="amount" render={({ field: { onChange, onBlur, value }, fieldState }) => (
-              <FormField ref={amountRef} label="Amount lent" prefix="₹" placeholder="2,500" numeric keyboardType="decimal-pad" returnKeyType="done" value={value} onChangeText={(text) => onChange(text.replace(/,/g, '').replace(/[^\d.]/g, ''))} onBlur={onBlur} onSubmitEditing={submit} error={fieldState.error?.message} hint="Amounts are stored exactly to the paise." />
-            )} />
-
-            {Platform.OS === 'web' ? (
-              <Controller control={form.control} name="dueDate" render={({ field: { onChange, value }, fieldState }) => <FormField label="Due date" placeholder="YYYY-MM-DD" value={value} onChangeText={onChange} returnKeyType="done" onSubmitEditing={submit} error={fieldState.error?.message} hint="Use YYYY-MM-DD, for example 2026-10-29." />} />
-            ) : (
-              <View style={styles.dateGroup}>
-                <Text style={styles.fieldLabel}>DUE DATE</Text>
-                <View style={styles.dateCard}>
-                  <View style={styles.dateIcon}><Ionicons name="calendar-outline" size={21} color={colors.primary} /></View>
-                  <View style={styles.dateCopy}><Text style={styles.dateValue}>{formatDate(dueDate)}</Text><Text style={styles.dateHint}>Due today is not considered overdue</Text></View>
-                  <DateTimePicker value={selectedDate} mode="date" onChange={(_, date) => date && form.setValue('dueDate', toIsoDate(date), { shouldValidate: true })} accentColor={colors.primary} />
+          {saved ? (
+            <FadeInView delay={40} style={styles.successCard}>
+              <View
+                accessible
+                accessibilityRole="alert"
+                accessibilityLiveRegion="polite"
+                accessibilityLabel={`Loan added. ${saved.loan.friendName} now appears in your ledger.${saved.receiptError ? ` The receipt didn’t upload: ${saved.receiptError}` : ''}`}
+              >
+                <View style={styles.successHeading}>
+                  <View style={styles.successIcon}><Ionicons name="checkmark" size={24} color={colors.success} /></View>
+                  <View style={styles.successCopy}>
+                    <Text style={styles.successTitle}>Loan added</Text>
+                    <Text style={styles.successMessage}>{saved.loan.friendName} now appears in your ledger.</Text>
+                  </View>
                 </View>
+                {!!saved.receiptError && (
+                  <View style={styles.receiptWarning}>
+                    <Ionicons name="alert-circle-outline" size={19} color={colors.warning} />
+                    <Text style={styles.receiptWarningText}>The loan was saved, but the receipt didn’t upload: {saved.receiptError} You can attach it from the loan details.</Text>
+                  </View>
+                )}
               </View>
-            )}
+              <View style={styles.successActions}>
+                <Button label="View loan" onPress={viewSavedLoan} />
+                <Button label="Back to dashboard" variant="secondary" onPress={returnToDashboard} />
+              </View>
+            </FadeInView>
+          ) : (
+            <>
+              <FadeInView delay={60} style={styles.formCard}>
+                <Controller control={form.control} name="friendName" render={({ field: { onChange, onBlur, value }, fieldState }) => (
+                  <FormField label="Friend’s name" placeholder="e.g. Aarav Sharma" autoCapitalize="words" autoCorrect={false} returnKeyType="next" blurOnSubmit={false} value={value} onChangeText={onChange} onBlur={onBlur} onSubmitEditing={() => amountRef.current?.focus()} error={fieldState.error?.message} />
+                )} />
+                <Controller control={form.control} name="amount" render={({ field: { onChange, onBlur, value }, fieldState }) => (
+                  <FormField ref={amountRef} label="Amount lent" prefix="₹" placeholder="2,500" numeric keyboardType="decimal-pad" returnKeyType="done" value={value} onChangeText={(text) => onChange(text.replace(/,/g, '').replace(/[^\d.]/g, ''))} onBlur={onBlur} onSubmitEditing={submit} error={fieldState.error?.message} hint="Amounts are stored exactly to the paise." />
+                )} />
 
-            <View style={styles.divider} />
-            <ReceiptPicker value={receipt} onChange={setReceipt} disabled={mutation.isPending} />
-          </FadeInView>
+                {Platform.OS === 'web' ? (
+                  <Controller control={form.control} name="dueDate" render={({ field: { onChange, value }, fieldState }) => <FormField label="Due date" placeholder="YYYY-MM-DD" value={value} onChangeText={onChange} returnKeyType="done" onSubmitEditing={submit} error={fieldState.error?.message} hint="Use YYYY-MM-DD, for example 2026-10-29." />} />
+                ) : (
+                  <View style={styles.dateGroup}>
+                    <Text style={styles.fieldLabel}>DUE DATE</Text>
+                    <View style={styles.dateCard}>
+                      <View style={styles.dateIcon}><Ionicons name="calendar-outline" size={21} color={colors.primary} /></View>
+                      <View style={styles.dateCopy}><Text style={styles.dateValue}>{formatDate(dueDate)}</Text><Text style={styles.dateHint}>Due today is not considered overdue</Text></View>
+                      <DateTimePicker value={selectedDate} mode="date" onChange={(_, date) => date && form.setValue('dueDate', toIsoDate(date), { shouldValidate: true })} accentColor={colors.primary} />
+                    </View>
+                  </View>
+                )}
 
-          <View style={styles.note}><Ionicons name="information-circle-outline" size={20} color={colors.primary} /><Text style={styles.noteText}>Past due dates are allowed and will be clearly marked overdue as soon as the loan is added.</Text></View>
-          {!!error && <View style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite"><Text style={styles.errorText}>{error}</Text></View>}
-          <Button label="Add to my ledger" loading={mutation.isPending} onPress={submit} />
-          <Text style={styles.footer}>Your financial totals come from the server and update after this loan is saved.</Text>
+                <View style={styles.divider} />
+                <ReceiptPicker value={receipt} onChange={setReceipt} disabled={mutation.isPending} />
+              </FadeInView>
+
+              <View style={styles.note}><Ionicons name="information-circle-outline" size={20} color={colors.primaryDark} /><Text style={styles.noteText}>Past due dates are allowed and will be clearly marked overdue as soon as the loan is added.</Text></View>
+              {!!error && <View style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite"><Ionicons name="alert-circle-outline" size={19} color={colors.danger} /><Text style={styles.errorText}>{error}</Text></View>}
+              <Button label="Add loan" loadingLabel="Saving loan…" loading={mutation.isPending} onPress={submit} />
+              <Text style={styles.footer}>Your financial totals come from the server and update after this loan is saved.</Text>
+            </>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -123,19 +166,26 @@ export default function AddLoanScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas }, flex: { flex: 1 },
-  content: { width: '100%', maxWidth: 620, alignSelf: 'center', padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.xl },
+  content: { width: '100%', maxWidth: 620, alignSelf: 'center', padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.lg },
   nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   iconButton: { width: 44, height: 44, borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
   navTitle: { alignItems: 'center' }, navEyebrow: { ...type.micro, color: colors.primary }, navHeading: { ...type.h3, color: colors.ink }, navSpacer: { width: 44 },
-  intro: { gap: spacing.xs, paddingTop: spacing.sm }, introTitle: { ...type.h1, color: colors.ink }, introCopy: { ...type.body, color: colors.muted },
-  formCard: { backgroundColor: colors.surface, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.line, padding: spacing.lg, gap: spacing.xl, ...shadow },
+  intro: { gap: spacing.xs, paddingTop: spacing.xs }, introTitle: { ...type.h1, color: colors.ink }, introCopy: { ...type.body, color: colors.inkSoft },
+  formCard: { backgroundColor: colors.surface, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.line, padding: spacing.lg, gap: spacing.lg, ...shadow },
   divider: { height: 1, backgroundColor: colors.line, marginHorizontal: -spacing.lg },
   dateGroup: { gap: spacing.xs }, fieldLabel: { ...type.caption, color: colors.ink, textTransform: 'uppercase' },
   dateCard: { minHeight: 66, borderRadius: radii.md, borderWidth: 1.5, borderColor: colors.line, flexDirection: 'row', alignItems: 'center', padding: spacing.sm, gap: spacing.sm },
   dateIcon: { width: 42, height: 42, borderRadius: 13, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
-  dateCopy: { flex: 1 }, dateValue: { ...type.bodyStrong, color: colors.ink }, dateHint: { ...type.caption, color: colors.muted },
-  note: { flexDirection: 'row', gap: spacing.sm, backgroundColor: colors.primarySoft, borderRadius: radii.md, padding: spacing.md }, noteText: { ...type.caption, color: colors.primaryDark, flex: 1 },
-  error: { backgroundColor: colors.dangerSoft, borderRadius: radii.sm, padding: spacing.sm }, errorText: { ...type.caption, color: colors.danger },
-  footer: { ...type.caption, color: colors.muted, textAlign: 'center', paddingHorizontal: spacing.lg },
+  dateCopy: { flex: 1 }, dateValue: { ...type.bodyStrong, color: colors.ink }, dateHint: { ...type.caption, color: colors.inkSoft },
+  note: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: radii.md, padding: spacing.md }, noteText: { ...type.caption, color: colors.primaryDark, flex: 1 },
+  error: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xs, backgroundColor: colors.dangerSoft, borderWidth: 1, borderColor: colors.dangerLine, borderRadius: radii.sm, padding: spacing.sm }, errorText: { ...type.caption, color: colors.danger, flex: 1 },
+  footer: { ...type.caption, color: colors.inkSoft, textAlign: 'center', paddingHorizontal: spacing.lg },
+  successCard: { backgroundColor: colors.surface, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.successLine, padding: spacing.lg, ...shadow },
+  successHeading: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  successIcon: { width: 48, height: 48, borderRadius: 16, backgroundColor: colors.successSoft, borderWidth: 1, borderColor: colors.successLine, alignItems: 'center', justifyContent: 'center' },
+  successCopy: { flex: 1, gap: 3 }, successTitle: { ...type.h2, color: colors.ink }, successMessage: { ...type.body, color: colors.inkSoft },
+  receiptWarning: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xs, marginTop: spacing.md, padding: spacing.sm, backgroundColor: colors.warningSoft, borderRadius: radii.sm },
+  receiptWarningText: { ...type.caption, color: colors.warning, flex: 1 },
+  successActions: { gap: spacing.sm, marginTop: spacing.lg },
 });
 

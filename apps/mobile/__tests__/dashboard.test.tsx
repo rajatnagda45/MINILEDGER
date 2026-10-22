@@ -2,7 +2,6 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { Loan, Summary } from '@miniledger/shared';
 import DashboardScreen from '@/app/(app)/index';
 import { api, ApiError } from '@/lib/api';
-import { notify } from '@/lib/confirm';
 import { createTestClient, TestQueryProvider } from './test-utils';
 
 jest.mock('react-native/Libraries/Lists/FlatList', () => {
@@ -31,10 +30,6 @@ jest.mock('@/components/fade-in-view', () => {
   const { View } = jest.requireActual('react-native');
   return { FadeInView: ({ children, style }: { children: React.ReactNode; style?: object }) => <View style={style}>{children}</View> };
 });
-jest.mock('@/lib/confirm', () => ({
-  confirmAction: jest.fn((_options, onConfirm: () => void) => onConfirm()),
-  notify: jest.fn(),
-}));
 jest.mock('@/lib/api', () => {
   const actual = jest.requireActual('@/lib/api');
   return { ...actual, api: { ...actual.api, loans: jest.fn(), summary: jest.fn(), repayLoan: jest.fn() } };
@@ -109,11 +104,28 @@ it('blocks repeated repayment activation while the first request is pending', as
   const screen = await render(<DashboardScreen />, { wrapper: TestQueryProvider });
   const action = await screen.findByLabelText("Mark Aarav Sharma's loan as repaid");
   await fireEvent.press(action);
-  await fireEvent.press(action);
+  expect(screen.getByText('Mark as repaid?')).toBeTruthy();
+  const confirm = screen.getByLabelText('Mark repaid');
+  await fireEvent.press(confirm);
+  await fireEvent.press(confirm);
   await waitFor(() => expect(repayLoan).toHaveBeenCalledTimes(1));
   await act(() => failRepayment(new ApiError(503, 'UNAVAILABLE', 'Please try again.')));
-  await waitFor(() => expect(notify).toHaveBeenCalledWith('Couldn’t update loan', 'Please try again.'));
+  expect(await screen.findByText('Couldn’t update loan')).toBeTruthy();
+  expect(screen.getByText('Please try again.')).toBeTruthy();
+  expect(screen.getByText('Mark as repaid?')).toBeTruthy();
+  expect(screen.getByLabelText('Mark repaid')).not.toBeDisabled();
   await waitFor(() => expect(screen.getByLabelText("Mark Aarav Sharma's loan as repaid")).not.toBeDisabled());
+  await screen.unmount();
+});
+
+it('does not repay when the confirmation is cancelled', async () => {
+  loans.mockResolvedValue({ loans: [activeLoan] });
+  summary.mockResolvedValue(totals);
+  const screen = await render(<DashboardScreen />, { wrapper: TestQueryProvider });
+  await fireEvent.press(await screen.findByLabelText("Mark Aarav Sharma's loan as repaid"));
+  await fireEvent.press(screen.getByLabelText('Cancel'));
+  expect(repayLoan).not.toHaveBeenCalled();
+  expect(screen.queryByText('Mark as repaid?')).toBeNull();
   await screen.unmount();
 });
 
@@ -129,7 +141,10 @@ it('shows a successful repayment and refreshes list, detail, and summary queries
   const screen = await render(<TestQueryProvider client={client}><DashboardScreen /></TestQueryProvider>);
 
   await fireEvent.press(await screen.findByLabelText("Mark Aarav Sharma's loan as repaid"));
-  expect(await screen.findByText('Aarav Sharma’s loan is settled.')).toBeTruthy();
+  await fireEvent.press(screen.getByLabelText('Mark repaid'));
+  expect(await screen.findByText('Repayment recorded')).toBeTruthy();
+  expect(screen.getByText('Aarav Sharma’s loan is settled.')).toBeTruthy();
+  expect(screen.queryByText('Mark as repaid?')).toBeNull();
   await waitFor(() => expect(screen.getByText('REPAID')).toBeTruthy());
   expect(invalidate).toHaveBeenCalledWith({ queryKey: ['loans'] });
   expect(invalidate).toHaveBeenCalledWith({ queryKey: ['summary'] });

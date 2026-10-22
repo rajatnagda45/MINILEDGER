@@ -18,6 +18,7 @@ export default function VerifyScreen() {
   const [seconds, setSeconds] = useState(Number(params.resend ?? 30));
   const inputRef = useRef<TextInput>(null);
   const verificationInFlight = useRef(false);
+  const resendInFlight = useRef(false);
   const { signIn } = useAuth();
 
   useEffect(() => {
@@ -33,7 +34,18 @@ export default function VerifyScreen() {
     verify.mutate(undefined, { onSettled: () => { verificationInFlight.current = false; } });
   };
   const resend = useMutation({ mutationFn: () => api.sendOtp(phone), onSuccess: (data) => { setSeconds(data.resendInSeconds); setOtp(''); } });
-  const error = verify.error instanceof ApiError ? verify.error.message : resend.error instanceof ApiError ? resend.error.message : null;
+  const resendCode = () => {
+    if (resendInFlight.current) return;
+    resendInFlight.current = true;
+    resend.mutate(undefined, { onSettled: () => { resendInFlight.current = false; } });
+  };
+  const error = verify.error instanceof ApiError
+    ? verify.error.message
+    : resend.error instanceof ApiError
+      ? resend.error.message
+      : verify.error || resend.error
+        ? 'We couldn’t complete that request. Check your connection and try again.'
+        : null;
 
   return (
     <KeyboardAvoidingView style={styles.page} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -73,12 +85,12 @@ export default function VerifyScreen() {
           />
         </View>
 
-        {!!error && <View style={styles.error}><Ionicons name="alert-circle-outline" size={18} color={colors.danger} /><Text style={styles.errorText}>{error}</Text></View>}
-        <Button label="Verify & open ledger" loading={verify.isPending} disabled={otp.length !== 6} onPress={submitOtp} />
+        {!!error && <View style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite"><Ionicons name="alert-circle-outline" size={18} color={colors.danger} /><Text style={styles.errorText}>{error}</Text></View>}
+        <Button label="Verify & open ledger" loadingLabel="Verifying…" loading={verify.isPending} disabled={otp.length !== 6} onPress={submitOtp} />
 
         <View style={styles.resendRow}>
           <Text style={styles.resendCopy}>{seconds > 0 ? `You can request another code in 0:${String(seconds).padStart(2, '0')}` : 'Didn’t get the code?'}</Text>
-          {seconds === 0 && <Pressable accessibilityRole="button" accessibilityState={{ disabled: resend.isPending, busy: resend.isPending }} disabled={resend.isPending} onPress={() => resend.mutate()}><Text style={styles.resendLink}>{resend.isPending ? 'Sending…' : 'Resend code'}</Text></Pressable>}
+          {seconds === 0 && <Pressable accessibilityRole="button" accessibilityLabel={resend.isPending ? 'Sending code…' : 'Resend code'} accessibilityState={{ disabled: resend.isPending, busy: resend.isPending }} disabled={resend.isPending} onPress={resendCode}><Text style={styles.resendLink}>{resend.isPending ? 'Sending code…' : 'Resend code'}</Text></Pressable>}
         </View>
         <Pressable accessibilityRole="button" onPress={() => router.replace('/(auth)/login')} style={styles.edit}><Ionicons name="pencil-outline" size={15} color={colors.primary} /><Text style={styles.editText}>Use a different number</Text></Pressable>
       </View>

@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { AuthProvider } from '@/providers/auth-provider';
+import { InteractionProvider } from '@/providers/interaction-provider';
 import { colors } from '@/constants/theme';
 
 export default function RootLayout() {
@@ -15,10 +16,12 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.canvas }, animation: 'slide_from_right' }} />
-      </AuthProvider>
+      <InteractionProvider>
+        <AuthProvider>
+          <StatusBar style="light" />
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.canvas }, animation: 'slide_from_right' }} />
+        </AuthProvider>
+      </InteractionProvider>
     </QueryClientProvider>
   );
 }

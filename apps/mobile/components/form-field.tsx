@@ -53,6 +53,6 @@ const styles = StyleSheet.create({
   input: { flex: 1, height: 52, fontSize: 16, fontWeight: '500', color: colors.ink, paddingVertical: 0 },
   numericInput: { fontVariant: ['tabular-nums'], letterSpacing: 0.6 },
   error: { ...type.caption, color: colors.danger },
-  hint: { ...type.caption, color: colors.muted },
+  hint: { ...type.caption, color: colors.inkSoft },
 });
 

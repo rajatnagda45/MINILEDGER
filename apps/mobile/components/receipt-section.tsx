@@ -6,7 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ReceiptMeta } from '@miniledger/shared';
 import { colors, radii, spacing, type } from '@/constants/theme';
 import { api, ApiError, type ReceiptAsset } from '@/lib/api';
-import { confirmAction, notify } from '@/lib/confirm';
+import { useInteraction } from '@/providers/interaction-provider';
+import { Button } from './button';
 import { ReceiptImage } from './receipt-image';
 import { ReceiptPicker } from './receipt-picker';
 
@@ -16,6 +17,7 @@ function sizeLabel(bytes: number): string {
 
 export function ReceiptSection({ loanId, receipt }: { loanId: string; receipt: ReceiptMeta | null }) {
   const queryClient = useQueryClient();
+  const { confirm, notify } = useInteraction();
   const [viewerOpen, setViewerOpen] = useState(false);
   const [replacing, setReplacing] = useState(false);
   const [draft, setDraft] = useState<ReceiptAsset | null>(null);
@@ -31,27 +33,41 @@ export function ReceiptSection({ loanId, receipt }: { loanId: string; receipt: R
 
   const upload = useMutation({
     mutationFn: (asset: ReceiptAsset) => api.uploadReceipt(loanId, asset),
-    onSuccess: async () => { setDraft(null); setReplacing(false); setVersion((v) => v + 1); await refresh(); },
-    onError: (error) => { setDraft(null); notify('Upload failed', error instanceof ApiError ? error.message : 'The receipt could not be uploaded.'); },
+    onSuccess: async () => {
+      const wasReplacement = Boolean(receipt);
+      setDraft(null);
+      setReplacing(false);
+      setVersion((v) => v + 1);
+      await refresh();
+      notify({ tone: 'success', title: wasReplacement ? 'Receipt replaced' : 'Receipt uploaded', message: 'The receipt is now attached to this loan.' });
+    },
+    onError: (error) => notify({ tone: 'error', title: 'Upload failed', message: error instanceof ApiError ? error.message : 'The receipt could not be uploaded. Try again.' }),
   });
   const remove = useMutation({
     mutationFn: () => api.deleteReceipt(loanId),
-    onSuccess: refresh,
-    onError: (error) => notify('Couldn’t remove receipt', error instanceof ApiError ? error.message : 'Please try again.'),
+    onSuccess: async () => {
+      await refresh();
+      notify({ tone: 'success', title: 'Receipt removed', message: 'The loan and financial totals are unchanged.' });
+    },
+    onError: (error) => notify({ tone: 'error', title: 'Couldn’t remove receipt', message: error instanceof ApiError ? error.message : 'Please try again.' }),
   });
 
-  const onPick = (asset: ReceiptAsset | null) => {
-    setDraft(asset);
-    if (!asset || uploadInFlight.current) return;
+  const uploadDraft = (asset: ReceiptAsset) => {
+    if (uploadInFlight.current) return;
     uploadInFlight.current = true;
     upload.mutate(asset, { onSettled: () => { uploadInFlight.current = false; } });
   };
-  const confirmRemove = () => confirmAction(
-    { title: 'Remove receipt?', message: 'This deletes the attached image. Your loan and totals are unchanged.', confirmLabel: 'Remove', destructive: true },
-    () => {
+  const onPick = (asset: ReceiptAsset | null) => {
+    setDraft(asset);
+    if (!asset) return;
+    uploadDraft(asset);
+  };
+  const confirmRemove = () => confirm(
+    { title: 'Remove receipt?', message: 'This deletes the attached image. Your loan and totals are unchanged.', confirmLabel: 'Remove', pendingLabel: 'Removing receipt…', destructive: true },
+    async () => {
       if (removalInFlight.current) return;
       removalInFlight.current = true;
-      remove.mutate(undefined, { onSettled: () => { removalInFlight.current = false; } });
+      await remove.mutateAsync(undefined, { onSettled: () => { removalInFlight.current = false; } });
     },
   );
 
@@ -78,6 +94,7 @@ export function ReceiptSection({ loanId, receipt }: { loanId: string; receipt: R
         <View style={styles.pickerWrap}>
           <ReceiptPicker value={draft} onChange={onPick} disabled={upload.isPending} />
           {upload.isPending && <View style={styles.uploading} accessibilityLiveRegion="polite"><ActivityIndicator color={colors.primary} /><Text style={styles.uploadingText}>Uploading receipt…</Text></View>}
+          {upload.isError && draft && <Button label="Retry upload" variant="secondary" onPress={() => uploadDraft(draft)} />}
           {replacing && !upload.isPending && (
             <Pressable accessibilityRole="button" onPress={() => { setReplacing(false); setDraft(null); }} style={styles.cancel}><Text style={styles.cancelText}>Keep current receipt</Text></Pressable>
           )}

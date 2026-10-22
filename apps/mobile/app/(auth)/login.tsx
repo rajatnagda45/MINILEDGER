@@ -26,7 +26,11 @@ export default function LoginScreen() {
     mutationFn: (phone: string) => api.sendOtp(`+91${phone}`),
     onSuccess: (data) => router.push({ pathname: '/(auth)/verify', params: { phone: data.phoneNumber, resend: String(data.resendInSeconds) } }),
   });
-  const serverError = sendOtp.error instanceof ApiError ? sendOtp.error.message : null;
+  const serverError = sendOtp.error instanceof ApiError
+    ? sendOtp.error.message
+    : sendOtp.error
+      ? 'We couldn’t send a code. Check your connection and try again.'
+      : null;
   const submit = form.handleSubmit((values) => {
     if (submissionInFlight.current) return;
     submissionInFlight.current = true;
@@ -62,7 +66,7 @@ export default function LoginScreen() {
         )}
       />
       {!!serverError && <Text style={styles.serverError} accessibilityLiveRegion="polite">{serverError}</Text>}
-      <Button label="Continue securely" loading={sendOtp.isPending} onPress={submit} />
+      <Button label="Continue securely" loadingLabel="Sending code…" loading={sendOtp.isPending} onPress={submit} />
       <View style={styles.securityRow}>
         <Ionicons name="lock-closed" size={13} color={colors.success} />
         <Text style={styles.securityText}>No password needed · your data stays private</Text>
