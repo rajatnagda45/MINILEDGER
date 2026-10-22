@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
   otpWrap: { flexDirection: 'row', gap: 6, justifyContent: 'center', position: 'relative', width: '100%' },
   digit: { flex: 1, maxWidth: 48, minWidth: 0, height: 58, borderRadius: radii.md, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadow },
   activeDigit: { borderColor: colors.primary },
-  filledDigit: { backgroundColor: colors.primarySoft, borderColor: '#C9D6FF' },
+  filledDigit: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
   digitText: { fontSize: 23, lineHeight: 28, fontWeight: '700', color: colors.ink, fontVariant: ['tabular-nums'] },
   caret: { width: 2, height: 26, borderRadius: 1, backgroundColor: colors.primary },
   // Full-size transparent input over the boxes: reliable focus/typing/paste on

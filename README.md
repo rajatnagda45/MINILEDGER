@@ -50,7 +50,7 @@ The app is built mobile-first with React Native Web, and composition — not jus
 
 ### Design system & motion
 
-Tokens live in `apps/mobile/constants/theme.ts` and are applied across every screen: a warm porcelain page, white card surfaces, ink-navy text, cobalt for primary actions and active states, and semantic mint/coral/amber reserved for repaid, overdue, and warning states (never colour alone — status also carries a label and icon). Financial amounts use exact INR formatting with tabular numerals.
+Tokens live in `apps/mobile/constants/theme.ts` and are applied across every screen. The "Midnight Ledger" identity uses layered dark surfaces (graphite canvas → slate cards → elevated panels), restrained electric-blue for primary actions and active states, and semantic mint/coral/amber reserved for repaid, overdue, and warning states (never colour alone — status also carries a label and icon). The outstanding balance sits on the brightest elevated panel as the primary anchor, and financial amounts use exact INR formatting with tabular numerals.
 
 Motion is restrained and purposeful (`components/fade-in-view.tsx`): a short fade-and-rise entrance on native (iOS/Android) that honours the OS *reduce motion* setting, plus button press feedback, stable loading skeletons, and a success banner shown only after the server confirms repayment. On React Native Web the entrance renders statically so motion can never conceal content.
 

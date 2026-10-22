@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
   label: { ...type.caption, color: colors.ink, textTransform: 'uppercase' },
   inputShell: { minHeight: 56, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, borderRadius: radii.md, flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md },
   inputShellFocused: { borderColor: colors.primary },
-  inputError: { borderColor: colors.danger, backgroundColor: '#FFFBFB' },
+  inputError: { borderColor: colors.danger, backgroundColor: colors.dangerSoft },
   prefix: { fontSize: 16, fontWeight: '600', color: colors.ink, paddingRight: spacing.sm, borderRightWidth: 1, borderRightColor: colors.line, marginRight: spacing.sm },
   // No lineHeight here: on a single-line web <input> a tall line-height pushes
   // the text off-centre and looks jittery while typing. A fixed height keeps it

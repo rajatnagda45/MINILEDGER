@@ -27,7 +27,7 @@ const styles = StyleSheet.create({
   base: { height: 54, borderRadius: radii.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, borderWidth: 1 },
   primary: { backgroundColor: colors.primary, borderColor: colors.primary },
   secondary: { backgroundColor: colors.surface, borderColor: colors.line },
-  danger: { backgroundColor: colors.dangerSoft, borderColor: '#FFD9DD' },
+  danger: { backgroundColor: colors.dangerSoft, borderColor: colors.danger },
   label: { ...type.bodyStrong, color: colors.white },
   altLabel: { color: colors.primary },
   dangerLabel: { color: colors.danger },

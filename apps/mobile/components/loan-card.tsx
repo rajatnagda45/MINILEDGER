@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: colors.surface, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.line, overflow: 'hidden', ...shadow },
   // Overdue uses a single dominant cue — the coral rail — supported sparingly by
   // the badge and due-date text. No full-surface tint, so the row stays calm.
-  overdueCard: { borderColor: '#EFD2D5' },
+  overdueCard: { borderColor: colors.dangerLine },
   overdueRail: { position: 'absolute', top: 0, bottom: 0, left: 0, width: 4, backgroundColor: colors.danger },
   main: { padding: spacing.md },
   pressed: { opacity: 0.75, backgroundColor: colors.canvas },

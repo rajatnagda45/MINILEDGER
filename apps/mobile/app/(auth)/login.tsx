@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.canvas },
   // Mobile single column
   content: { flexGrow: 1, width: '100%', maxWidth: 520, alignSelf: 'center', paddingHorizontal: spacing.xl, paddingTop: 72, paddingBottom: spacing.xxl, gap: spacing.xxl, overflow: 'hidden' },
-  glow: { position: 'absolute', width: 280, height: 280, borderRadius: 140, backgroundColor: '#E5ECFF', top: -130, right: -120 },
+  glow: { position: 'absolute', width: 280, height: 280, borderRadius: 140, backgroundColor: 'rgba(82,119,255,0.12)', top: -130, right: -120 },
   hero: { gap: spacing.md },
   eyebrow: { alignSelf: 'flex-start', backgroundColor: colors.primarySoft, borderRadius: radii.pill, paddingHorizontal: 11, paddingVertical: 6 },
   eyebrowText: { ...type.micro, color: colors.primaryDark },
@@ -163,9 +163,9 @@ const styles = StyleSheet.create({
   sampleMeta: { ...type.caption, color: '#8595B5' },
   sampleAmount: { ...type.bodyStrong, color: colors.white, fontVariant: ['tabular-nums'] },
   sampleTag: { width: 6, height: 28, borderRadius: 3 },
-  tag_active: { backgroundColor: '#6B8CFF' },
-  tag_overdue: { backgroundColor: '#FF7D89' },
-  tag_repaid: { backgroundColor: '#6DE0B3' },
+  tag_active: { backgroundColor: colors.primary },
+  tag_overdue: { backgroundColor: colors.danger },
+  tag_repaid: { backgroundColor: colors.success },
   sampleNote: { ...type.caption, color: '#6E7D9C', marginTop: 2 },
   // Shared auth panel
   card: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radii.xl, padding: spacing.xl, gap: spacing.lg, ...shadow },
