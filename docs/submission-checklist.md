@@ -1,12 +1,12 @@
 # Submission readiness checklist
 
-Evidence recorded on 22 October 2026. “Manual action” means the repository cannot honestly prove the item without a human-operated simulator/device or external recording service.
+Evidence recorded on 23 October 2026. “Manual action” means the repository cannot honestly prove the item without a human-operated simulator/device or external recording service.
 
 | Item | Status | Evidence or next action |
 |---|---|---|
 | Existing implementation inspected | Verified | Screens, components, API client, authentication, services, Prisma schema, tests, configuration, docs, and Git history reviewed. |
-| Baseline verification recorded | Verified | Clean `main`; baseline had 17 passing tests, strict types, and compatible Expo packages. |
-| Existing user changes preserved | Verified | Baseline working tree was clean; prior commits were not amended or rewritten. |
+| Baseline verification recorded | Verified | Current remediation branch and complete uncommitted diff inspected before edits; no existing work was discarded. |
+| Existing user changes preserved | Verified | All pre-existing uncommitted receipt, contrast, documentation, and screenshot-removal remediation remains in the final diff; prior commits were not amended or rewritten. |
 | Required assignment functionality preserved | Verified | Authentication, loans, repayment, summaries, mobile routes, and PostgreSQL contracts remain intact. |
 | UI/UX improvements implemented | Verified | Exact amounts, separate card actions, stable summary loading shape, responsive width, formatted phone entry, stronger accessibility, and unsaved-form protection. |
 | Login and OTP logic verified | Verified | Automated issue, wrong-code, expiry, reuse, and production-logging tests pass. Full mobile touch flow still needs device confirmation. |
@@ -17,7 +17,7 @@ Evidence recorded on 22 October 2026. “Manual action” means the repository c
 | Mobile network configuration reviewed | Verified | Environment-based base URL, iOS/Android/device table, timeout, bearer header, and 401 logout path documented. |
 | Loading, empty, error, success states reviewed | Verified | Code review plus lint/type/bundle gates; native visual behavior requires manual confirmation. |
 | Accessibility improvements checked | Verified in code | Roles, labels, selected/disabled/busy states, non-colour status text, separate targets, and live announcements. VoiceOver/TalkBack requires manual action. |
-| Automated tests executed | Verified | 66/66 tests passed across seven files, incl. OTP boundaries, JWT pinning, receipt validation/consistency, storage permissions, and a real-PostgreSQL concurrent-repayment integration test. |
+| Automated tests executed | Verified | 93/93 tests passed across 17 files: 25 mobile tests plus 68 backend tests, incl. OTP boundaries, JWT pinning, receipt validation/consistency, deterministic receipt concurrency, storage permissions, and a real-PostgreSQL concurrent-repayment integration test. |
 | TypeScript executed | Verified | All workspaces passed strict checking. |
 | Linting executed | Verified | Expo ESLint passed. |
 | Production bundles checked | Verified | iOS, Android, and web exports completed successfully. |
@@ -27,6 +27,6 @@ Evidence recorded on 22 October 2026. “Manual action” means the repository c
 | Final Git diff reviewed | Verified | Required before final push; recorded in final report. |
 | Demo script ready | Verified | `docs/demo-script.md`. |
 | Recording uploaded | Requires manual action | Record 2–3 minutes, upload, verify sharing in a private window, and add the genuine URL. |
-| Receipt upload | Verified | Implemented end to end: secure JPEG/PNG upload with signature validation and 5 MB limit, private filesystem storage with server-generated keys, authenticated ownership-scoped retrieval/deletion, 17 regression tests, and a real upload/preview/delete flow against PostgreSQL. S3 remains a documented extension. |
+| Receipt upload | Verified | Implemented end to end: bounded JPEG/PNG validation and 5 MB limit, private filesystem storage with server-generated keys, authenticated ownership-scoped retrieval/deletion, 26 receipt API regression tests plus dedicated image/storage tests, and a real upload/preview/delete flow against PostgreSQL. S3 remains a documented extension. |
 | Native simulator/device visual QA | Requires manual action | Complete `docs/manual-smoke-test.md` on at least one target before recording. |
 

@@ -46,11 +46,11 @@ The client aborts requests after 12 seconds and converts network, timeout, authe
 
 ## How is the API tested?
 
-Supertest exercises the real Express middleware and routes. A deterministic in-memory implementation isolates tests from developer databases. Nineteen tests cover OTP issue, wrong/expired/reused codes, production logging, malformed JSON and IDs, validation, authentication, ownership, repayment, user isolation, exact totals, and yesterday/today/tomorrow overdue boundaries. A separate PostgreSQL smoke test proves migrations and persistence.
+Jest and React Native Testing Library exercise the real mobile screens, providers, hooks and components at user-facing boundaries; 25 tests cover auth, web/native token storage, loading/empty/error states, forms, duplicate submission, query refresh, receipts, cancellation and overdue cues. Supertest exercises the real Express middleware and routes. A deterministic in-memory implementation isolates most API tests from developer databases. The 68 backend tests cover OTP boundaries, JWT algorithm pinning, malformed requests, validation, authentication, ownership, repayment, summaries, date boundaries, receipt validation and storage failure handling. A gated real-PostgreSQL integration test applies the committed migrations to a disposable database and proves that only one of two concurrent repayment attempts succeeds.
 
-## How would receipt uploads be secured?
+## How are receipt uploads secured?
 
-I would first load the owned loan, then accept only a small allowlist of image formats with size and signature checks, generate a random server filename, store it outside the public source tree, and stream it back only through an authenticated ownership-checked endpoint. The current version does not claim this feature.
+The service first loads the owned loan, then accepts only bounded, structurally inspected JPEG/PNG images. It generates a random storage key, writes with exclusive creation into a private `0700` directory using `0600` files, stores only metadata in PostgreSQL, and streams bytes through an authenticated ownership-checked endpoint. Replacement and deletion use ordered operations, conditional metadata deletion, retryable tombstones, and deterministic failure/concurrency tests.
 
 ## What changes are needed for production?
 
@@ -58,5 +58,5 @@ Use a real SMS vendor, distributed challenge/rate-limit storage, key rotation, r
 
 ## What would another week add?
 
-First I would run accessibility and device UI automation on several screen sizes. Then I would add pagination, receipt upload with private object storage, partial repayments using an immutable transaction table, richer account recovery, and CI that provisions PostgreSQL for integration tests.
+First I would run accessibility and device UI automation on several screen sizes. Then I would add pagination, move receipt bytes to private object storage for multi-instance deployment, model partial repayments with an immutable transaction table, add richer account recovery, and make the PostgreSQL integration test mandatory in CI.
 

@@ -15,7 +15,7 @@ MiniLedger is a focused mobile lending tracker for money lent to friends. It com
 - User ownership checks on every protected loan operation
 - Exact money storage in integer paise
 - Optional receipt photo per loan, with secure upload, private storage, and authenticated preview
-- 66 automated tests covering authentication, OTP boundaries, JWT algorithm pinning, loans, ownership, dates, summaries, receipt validation and cleanup consistency, filesystem permissions, and a real-PostgreSQL concurrent-repayment integration test
+- 93 automated tests: 25 mobile component/integration tests plus 68 backend tests covering authentication, OTP boundaries, JWT algorithm pinning, loans, ownership, dates, summaries, receipt validation and cleanup consistency, deterministic receipt concurrency, filesystem permissions, and a real-PostgreSQL concurrent-repayment integration test
 
 The required login, lending, repayment, and summary journey is complete and tested, and the optional receipt-photo bonus is implemented end to end (see [Receipts](#receipts)).
 
@@ -70,13 +70,13 @@ Captured from the running web build against the seeded PostgreSQL database, with
 | --- | --- |
 | ![MiniLedger mobile login](docs/screenshots/login-mobile.png) | ![MiniLedger mobile dashboard, single column](docs/screenshots/dashboard-mobile.png) |
 
-**Receipts**
+**Receipt lifecycle**
 
-| Add-loan receipt section | Attached receipt on loan details |
-| --- | --- |
-| ![Optional receipt section on the add-loan form](docs/screenshots/add-loan-receipt.png) | ![Loan details showing an attached receipt with view, replace, and remove](docs/screenshots/loan-receipt-detail.png) |
+The add-loan screenshot above includes the optional receipt selector. The detail view below shows an attached receipt with view, replace, and remove controls.
 
-The narrow captures were taken at a 500px viewport (headless Chrome's minimum window width). The layout is single-column and free of horizontal overflow at that width; widths below 500px were not captured here and should be checked on a device or emulator before submission.
+![Loan details showing an attached receipt with view, replace, and remove](docs/screenshots/loan-receipt-detail.png)
+
+The committed narrow captures were taken at a 500px viewport. The running web app was additionally inspected at 360px, 375px, 390px, and 430px on 23 October 2026 without horizontal overflow; native rendering at those widths still requires the device smoke test before submission.
 
 ## Technology
 
@@ -84,7 +84,7 @@ The narrow captures were taken at a 500px viewport (headless Chrome's minimum wi
 - Forms/state: React Hook Form, Zod, TanStack Query
 - Backend: Node.js, Express 5, TypeScript, JWT, Zod
 - Data: PostgreSQL 16, Prisma 6 migrations
-- Tests: Vitest and Supertest with an isolated in-memory data-store adapter
+- Tests: Jest + React Native Testing Library for mobile; Vitest + Supertest for the API, with an isolated in-memory data-store adapter and gated PostgreSQL integration
 
 ## Repository layout
 
@@ -170,7 +170,8 @@ The code expires after five minutes, has a 30-second resend cooldown, permits fi
 
 ```bash
 npm run typecheck       # all workspaces
-npm test                # backend automated tests
+npm test                # mobile and backend automated tests
+npm run test:mobile     # mobile component/integration tests only
 npm run lint            # Expo ESLint rules
 npm run db:generate     # generate Prisma client
 npm run db:migrate      # create/apply a development migration
@@ -193,7 +194,7 @@ npx expo export --platform web
 | Command | Requires | CI-safe |
 |---|---|---|
 | `npm run typecheck`, `npm run lint` | nothing | yes |
-| `npm test` | nothing for the default suite (in-memory store). The one real-PostgreSQL integration test runs only when `pg_isready` succeeds and is otherwise skipped (reported, not failed) | yes |
+| `npm test` | nothing for mobile tests and most API tests. The real-PostgreSQL integration test runs only when `pg_isready` succeeds and is otherwise skipped (reported, not failed) | yes |
 | `npm run db:generate` | the root `.env` (no database connection) | yes |
 | `npm run db:migrate`, `db:deploy`, `db:seed`, `dev:backend` | a running PostgreSQL reachable at `DATABASE_URL` | no |
 | `npx expo export --platform …` | nothing (produces JS bundles) | yes |
@@ -247,7 +248,7 @@ Each loan can optionally carry one receipt photo.
 | `RECEIPT_STORAGE_DIR` | `.receipts` | Private directory for receipt binaries (relative to the backend process) |
 | `RECEIPT_MAX_BYTES` | `5242880` | Maximum accepted upload size in bytes |
 
-Run `npm run db:migrate` to apply the `add_receipts` migration before using the feature.
+Run `npm run db:migrate` to apply all committed migrations before using the feature.
 
 ### Manual test
 
@@ -262,17 +263,17 @@ Run `npm run db:migrate` to apply the `add_receipts` migration before using the 
 
 ## Verification status
 
-Verified on 22 October 2026:
+Verified on 23 October 2026:
 
 - TypeScript passed across mobile, backend, and shared packages.
-- 66 automated tests passed across seven test files (auth, auth-security, loans, receipts, image inspection, storage permissions, and a real-PostgreSQL concurrency integration test).
+- 93 automated tests passed across 17 test files: 25 mobile tests covering auth, web/native token storage, state rendering, forms, duplicate submission, query refresh, receipts, cancellation and accessibility cues; plus 68 backend tests including a real-PostgreSQL concurrency integration test.
 - Expo ESLint completed without warnings or errors.
-- Prisma migration applied successfully to PostgreSQL 16.
+- Prisma generation and schema validation passed, and all three migrations are applied to PostgreSQL 16.
 - OTP issue/verification (`[DEV OTP]` log), authenticated loan listing, server-calculated summary, and the full receipt lifecycle (upload, authenticated retrieval with byte-exact download, cross-user denial, deletion, and unchanged summary) were exercised against the real PostgreSQL database and local file storage.
 - Expo produced a successful web release bundle (`expo export --platform web`).
 - The web build was served and loaded in headless Chrome with a real session token; genuine screenshots of login, dashboard, and add-loan were captured at desktop (1440px) and narrow (500px) viewports — see [Screenshots](#screenshots).
 
-No iOS simulator or connected physical device was available in the build environment, so native touch interaction and iOS/Android visual QA still need the short manual pass in [docs/manual-smoke-test.md](docs/manual-smoke-test.md). Phone widths below 500px were not visually captured (headless Chrome clamps its window to ~500px), so the ~360–390px layout is covered by code review rather than a screenshot. The desktop/mobile web visuals are evidenced by the captured screenshots; native-only rendering is not claimed from them. No screenshots or device-test claims are fabricated.
+No iOS simulator or connected physical device was available in the build environment, so native touch interaction and iOS/Android visual QA still need the short manual pass in [docs/manual-smoke-test.md](docs/manual-smoke-test.md). The web app was visually inspected at 360px, 375px, 390px, and 430px on 23 October 2026; the committed narrow gallery remains at 500px. The desktop/mobile web visuals are evidenced by the captured screenshots and runtime inspection; native-only rendering is not claimed from them. No screenshots or device-test claims are fabricated.
 
 ## Security and limits
 
@@ -284,7 +285,7 @@ No iOS simulator or connected physical device was available in the build environ
 - Full repayment is the only repayment model; partial repayment is intentionally out of scope.
 - OTP challenges are held in process memory, so they are not shared across multiple API instances.
 - Receipt storage uses the local filesystem; a private-bucket S3 backend is an interface extension, not built yet. Only JPEG/PNG are accepted (e.g. iOS HEIC captures are rejected). Loan deletion is not implemented.
-- The npm advisory report includes transitive development-tool advisories in Expo/Prisma chains. Do not apply `npm audit fix --force` without testing their breaking major upgrades.
+- The current npm advisory report contains unresolved transitive toolchain advisories in Expo/Metro/Jest/Prisma chains. npm offers only breaking major-version changes for the remaining paths; do not apply `npm audit fix --force` without a planned Expo/Prisma upgrade and full native regression pass.
 
 ## Demo recording
 
