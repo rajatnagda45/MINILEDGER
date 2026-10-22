@@ -1,29 +1,45 @@
 import { Platform } from 'react-native';
 
 export const colors = {
-  canvas: '#F4F6FA',
+  // Surfaces: warm porcelain page, white cards
+  canvas: '#F7F6F2',
   surface: '#FFFFFF',
-  ink: '#111827',
-  inkSoft: '#4B5565',
-  muted: '#758195',
-  line: '#E4E8F0',
-  primary: '#2E63F6',
-  primaryDark: '#1743BD',
-  primarySoft: '#EAF0FF',
-  navy: '#101D37',
-  navyLift: '#17294B',
-  danger: '#D83B4B',
-  dangerSoft: '#FFF0F1',
-  warning: '#A95E00',
-  warningSoft: '#FFF7E8',
-  success: '#16845B',
-  successSoft: '#E9F8F1',
+  // Text hierarchy: deep ink navy → secondary slate
+  ink: '#172033',
+  inkSoft: '#3E4759',
+  muted: '#647087',
+  line: '#E1E5ED',
+  // Primary action: cobalt
+  primary: '#355CF5',
+  primaryDark: '#2443C8',
+  primarySoft: '#E9EEFF',
+  // Identity surfaces
+  navy: '#14213D',
+  navyLift: '#0B1428',
+  // Semantic: coral danger, amber warning, mint success
+  danger: '#C74747',
+  dangerSoft: '#FCEAEA',
+  warning: '#B86E16',
+  warningSoft: '#FFF2DB',
+  success: '#16866A',
+  successSoft: '#E5F5EF',
   white: '#FFFFFF',
-  scrim: 'rgba(15, 23, 42, 0.46)',
+  scrim: 'rgba(11, 20, 40, 0.46)',
 } as const;
 
 export const spacing = { xxs: 4, xs: 8, sm: 12, md: 16, lg: 20, xl: 24, xxl: 32, xxxl: 40 } as const;
 export const radii = { sm: 10, md: 16, lg: 22, xl: 28, pill: 999 } as const;
+
+// Motion tokens — short and purposeful for a financial utility.
+export const motion = {
+  fast: 140,
+  base: 220,
+  slow: 320,
+  // Standard ease-out curve (approximated for RN Animated bezier).
+  rise: 10,
+} as const;
+
+export const breakpoints = { tablet: 640, desktop: 1024 } as const;
 
 export const shadow = Platform.select({
   ios: { shadowColor: '#0F1E3A', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.08, shadowRadius: 24 },

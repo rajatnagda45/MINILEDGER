@@ -4,20 +4,25 @@ import { useMemo, useState } from 'react';
 import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import type { Loan } from '@miniledger/shared';
+import type { Loan, Summary } from '@miniledger/shared';
 import { BrandMark } from '@/components/brand-mark';
+import { FadeInView } from '@/components/fade-in-view';
 import { ErrorState, LoadingState } from '@/components/state-view';
 import { LoanCard } from '@/components/loan-card';
 import { colors, radii, shadow, spacing, type } from '@/constants/theme';
+import { useResponsive } from '@/hooks/use-responsive';
 import { api, ApiError } from '@/lib/api';
 import { formatCurrency } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
 
 type Filter = 'ALL' | 'OUTSTANDING' | 'REPAID';
+const FILTERS: Filter[] = ['ALL', 'OUTSTANDING', 'REPAID'];
+const filterLabel = (f: Filter) => (f === 'OUTSTANDING' ? 'Active' : f === 'ALL' ? 'All' : 'Repaid');
 
 export default function DashboardScreen() {
   const queryClient = useQueryClient();
   const { signOut } = useAuth();
+  const { isDesktop } = useResponsive();
   const [filter, setFilter] = useState<Filter>('ALL');
   const [notice, setNotice] = useState<string | null>(null);
   const loansQuery = useQuery({ queryKey: ['loans'], queryFn: api.loans });
@@ -50,69 +55,129 @@ export default function DashboardScreen() {
 
   const isInitialLoading = loansQuery.isLoading || summaryQuery.isLoading;
   const error = loansQuery.error ?? summaryQuery.error;
+  const totalCount = loansQuery.data?.loans.length ?? 0;
 
+  const onAdd = () => router.push('/(app)/add-loan');
+  const onSignOut = () => Alert.alert('Sign out?', 'Your private ledger will be removed from this device.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Sign out', style: 'destructive', onPress: () => void signOut() }]);
+
+  const overview = (
+    <>
+      {summaryQuery.data ? <FadeInView delay={60}><SummaryPanel summary={summaryQuery.data} /></FadeInView> : summaryQuery.isLoading ? <SummarySkeleton /> : null}
+      {!!notice && <FadeInView key={notice} style={styles.notice}><View style={styles.noticeRow} accessibilityRole="alert" accessibilityLiveRegion="polite"><Ionicons name="checkmark-circle" size={19} color={colors.success} /><Text style={styles.noticeText}>{notice}</Text></View></FadeInView>}
+    </>
+  );
+
+  const sectionRow = (
+    <View style={styles.sectionRow}>
+      <View><Text style={styles.sectionTitle}>Loans</Text><Text style={styles.sectionMeta}>{totalCount} total {totalCount === 1 ? 'entry' : 'entries'}</Text></View>
+      <View style={styles.filters}>
+        {FILTERS.map((value) => (
+          <Pressable key={value} accessibilityRole="button" accessibilityLabel={`Show ${filterLabel(value).toLowerCase()} loans`} accessibilityState={{ selected: filter === value }} onPress={() => setFilter(value)} style={[styles.filter, filter === value && styles.filterActive]}>
+            <Text style={[styles.filterText, filter === value && styles.filterTextActive]}>{filterLabel(value)}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+
+  const renderItem = ({ item }: { item: Loan }) => (
+    <LoanCard
+      loan={item}
+      onPress={() => router.push({ pathname: '/(app)/loan/[id]', params: { id: item.id } })}
+      onRepay={() => confirmRepay(item)}
+      repaying={repay.isPending && repay.variables === item.id}
+    />
+  );
+  const listStates = (
+    <>
+      {isInitialLoading && <LoadingState />}
+      {!!error && !isInitialLoading && <ErrorState message={error instanceof ApiError ? error.message : 'Please check your connection.'} onRetry={() => void refresh()} />}
+    </>
+  );
+  const emptyComponent = !isInitialLoading && !error ? <EmptyState filtered={filter !== 'ALL'} filterName={filterLabel(filter)} onAdd={onAdd} onShowAll={() => setFilter('ALL')} /> : null;
+  const refreshControl = <RefreshControl refreshing={loansQuery.isRefetching || summaryQuery.isRefetching} onRefresh={() => void refresh()} tintColor={colors.primary} />;
+
+  // ----- Desktop: overview sidebar + dedicated loan-list column -----
+  if (isDesktop) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={styles.deskShell}>
+          <View style={styles.deskSidebar}>
+            <TopBar onAdd={onAdd} onSignOut={onSignOut} wide />
+            <View style={styles.heading}>
+              <Text style={styles.eyebrow}>YOUR LENDING</Text>
+              <Text style={styles.title}>Dashboard</Text>
+              <Text style={styles.subheading}>A clear view of every rupee you’re owed.</Text>
+            </View>
+            {overview}
+          </View>
+          <View style={styles.deskMain}>
+            {sectionRow}
+            {listStates}
+            <FlatList
+              data={filtered}
+              keyExtractor={(item) => item.id}
+              renderItem={renderItem}
+              ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+              contentContainerStyle={styles.deskListContent}
+              showsVerticalScrollIndicator={false}
+              refreshControl={refreshControl}
+              ListEmptyComponent={emptyComponent}
+            />
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ----- Mobile / tablet: natural single column -----
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <LoanCard
-            loan={item}
-            onPress={() => router.push({ pathname: '/(app)/loan/[id]', params: { id: item.id } })}
-            onRepay={() => confirmRepay(item)}
-            repaying={repay.isPending && repay.variables === item.id}
-          />
-        )}
+        renderItem={renderItem}
         ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={loansQuery.isRefetching || summaryQuery.isRefetching} onRefresh={() => void refresh()} tintColor={colors.primary} />}
+        refreshControl={refreshControl}
         ListHeaderComponent={(
           <View style={styles.headerWrap}>
-            <View style={styles.topBar}>
-              <BrandMark compact />
-              <View style={styles.topActions}>
-                <Pressable accessibilityRole="button" accessibilityLabel="Add loan" onPress={() => router.push('/(app)/add-loan')} style={styles.addTop}>
-                  <Ionicons name="add" size={20} color={colors.white} /><Text style={styles.addTopText}>Add loan</Text>
-                </Pressable>
-                <Pressable accessibilityRole="button" accessibilityLabel="Sign out" onPress={() => Alert.alert('Sign out?', 'Your private ledger will be removed from this device.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Sign out', style: 'destructive', onPress: () => void signOut() }])} style={styles.iconButton}>
-                  <Ionicons name="log-out-outline" size={20} color={colors.inkSoft} />
-                </Pressable>
-              </View>
-            </View>
+            <TopBar onAdd={onAdd} onSignOut={onSignOut} />
             <View style={styles.heading}>
               <Text style={styles.eyebrow}>GOOD {new Date().getHours() < 12 ? 'MORNING' : new Date().getHours() < 17 ? 'AFTERNOON' : 'EVENING'}</Text>
               <Text style={styles.title}>Your lending</Text>
               <Text style={styles.subheading}>A clear view of every rupee you’re owed.</Text>
             </View>
-
-            {summaryQuery.data ? <SummaryPanel summary={summaryQuery.data} /> : summaryQuery.isLoading ? <SummarySkeleton /> : null}
-            {!!notice && <View style={styles.notice} accessibilityRole="alert" accessibilityLiveRegion="polite"><Ionicons name="checkmark-circle" size={19} color={colors.success} /><Text style={styles.noticeText}>{notice}</Text></View>}
-
-            <View style={styles.sectionRow}>
-              <View><Text style={styles.sectionTitle}>Loans</Text><Text style={styles.sectionMeta}>{loansQuery.data?.loans.length ?? 0} total entries</Text></View>
-              <View style={styles.filters}>
-                {(['ALL', 'OUTSTANDING', 'REPAID'] as const).map((value) => (
-                  <Pressable key={value} accessibilityRole="button" accessibilityLabel={`Show ${value === 'OUTSTANDING' ? 'active' : value.toLowerCase()} loans`} accessibilityState={{ selected: filter === value }} onPress={() => setFilter(value)} style={[styles.filter, filter === value && styles.filterActive]}>
-                    <Text style={[styles.filterText, filter === value && styles.filterTextActive]}>{value === 'OUTSTANDING' ? 'Active' : value === 'ALL' ? 'All' : 'Repaid'}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-
-            {isInitialLoading && <LoadingState />}
-            {!!error && !isInitialLoading && <ErrorState message={error instanceof ApiError ? error.message : 'Please check your connection.'} onRetry={() => void refresh()} />}
+            {overview}
+            {sectionRow}
+            {listStates}
           </View>
         )}
-        ListEmptyComponent={!isInitialLoading && !error ? <EmptyState filtered={filter !== 'ALL'} onAdd={() => router.push('/(app)/add-loan')} onShowAll={() => setFilter('ALL')} /> : null}
+        ListEmptyComponent={emptyComponent}
         ListFooterComponent={<View style={styles.footerSpace} />}
       />
     </SafeAreaView>
   );
 }
 
-function SummaryPanel({ summary }: { summary: import('@miniledger/shared').Summary }) {
+function TopBar({ onAdd, onSignOut, wide = false }: { onAdd: () => void; onSignOut: () => void; wide?: boolean }) {
+  return (
+    <View style={styles.topBar}>
+      <BrandMark compact={!wide} />
+      <View style={styles.topActions}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Add loan" onPress={onAdd} style={styles.addTop}>
+          <Ionicons name="add" size={20} color={colors.white} /><Text style={styles.addTopText}>Add loan</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Sign out" onPress={onSignOut} style={styles.iconButton}>
+          <Ionicons name="log-out-outline" size={20} color={colors.inkSoft} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function SummaryPanel({ summary }: { summary: Summary }) {
   return (
     <View style={styles.summaryCard}>
       <View style={styles.orbOne} /><View style={styles.orbTwo} />
@@ -150,12 +215,14 @@ function SummaryStat({ label, value, tone }: { label: string; value: string; ton
   return <View style={styles.summaryStat}><Text style={styles.statLabel}>{label}</Text><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.62} style={[styles.statValue, tone === 'success' && styles.statSuccess, tone === 'danger' && styles.statDanger]}>{value}</Text></View>;
 }
 
-function EmptyState({ filtered, onAdd, onShowAll }: { filtered: boolean; onAdd: () => void; onShowAll: () => void }) {
+function EmptyState({ filtered, filterName, onAdd, onShowAll }: { filtered: boolean; filterName: string; onAdd: () => void; onShowAll: () => void }) {
   return (
     <View style={styles.empty}>
-      <View style={styles.emptyIcon}><Ionicons name={filtered ? 'filter-outline' : 'people-outline'} size={29} color={colors.primary} /></View>
-      <Text style={styles.emptyTitle}>{filtered ? 'No loans in this view' : 'Your ledger is ready'}</Text>
-      <Text style={styles.emptyCopy}>{filtered ? 'Try another filter to see your entries.' : 'Add your first friendly loan. We’ll keep the amount and due date easy to follow.'}</Text>
+      <View style={styles.emptyIcon}><Ionicons name={filtered ? 'funnel-outline' : 'sparkles-outline'} size={22} color={colors.primary} /></View>
+      <View style={styles.emptyBody}>
+        <Text style={styles.emptyTitle}>{filtered ? `No ${filterName.toLowerCase()} loans` : 'Your ledger is ready'}</Text>
+        <Text style={styles.emptyCopy}>{filtered ? 'Nothing matches this filter right now.' : 'Add your first friendly loan — we’ll keep the amount and due date easy to follow.'}</Text>
+      </View>
       <Pressable accessibilityRole="button" onPress={filtered ? onShowAll : onAdd} style={styles.emptyAction}>
         <Ionicons name={filtered ? 'list-outline' : 'add'} size={18} color={colors.white} />
         <Text style={styles.emptyActionText}>{filtered ? 'Show all loans' : 'Add first loan'}</Text>
@@ -168,6 +235,11 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas },
   content: { width: '100%', maxWidth: 680, alignSelf: 'center', paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
   headerWrap: { gap: spacing.xl, marginBottom: spacing.md },
+  // Desktop shell
+  deskShell: { flex: 1, flexDirection: 'row', width: '100%', maxWidth: 1180, alignSelf: 'center', paddingHorizontal: spacing.xxl, paddingTop: spacing.xl, gap: spacing.xxl },
+  deskSidebar: { width: 380, gap: spacing.xl },
+  deskMain: { flex: 1, gap: spacing.lg, paddingBottom: spacing.sm },
+  deskListContent: { paddingBottom: spacing.xxxl, gap: 0 },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   topActions: { flexDirection: 'row', gap: spacing.xs },
   addTop: { height: 42, borderRadius: 14, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.sm, gap: 4 },
@@ -202,7 +274,8 @@ const styles = StyleSheet.create({
   overdueCallout: { marginTop: spacing.lg, backgroundColor: 'rgba(216,59,75,0.17)', borderRadius: radii.sm, paddingHorizontal: spacing.sm, minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 7 },
   alertDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#FF7D89' },
   overdueCalloutText: { ...type.caption, color: '#FFD4D8', flex: 1 },
-  notice: { backgroundColor: colors.successSoft, borderWidth: 1, borderColor: '#C7EDDC', borderRadius: radii.md, padding: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  notice: { backgroundColor: colors.successSoft, borderWidth: 1, borderColor: '#C6E8DB', borderRadius: radii.md, padding: spacing.sm },
+  noticeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   noticeText: { ...type.caption, color: colors.success },
   sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: spacing.sm },
   sectionTitle: { ...type.h2, color: colors.ink },
@@ -213,11 +286,11 @@ const styles = StyleSheet.create({
   filterText: { ...type.caption, color: colors.muted },
   filterTextActive: { color: colors.ink },
   footerSpace: { height: 42 },
-  empty: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radii.lg, padding: spacing.xl, alignItems: 'center', gap: spacing.sm },
-  emptyIcon: { width: 60, height: 60, borderRadius: 22, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.xs },
+  empty: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radii.lg, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  emptyIcon: { width: 46, height: 46, borderRadius: 16, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  emptyBody: { flex: 1, gap: 2 },
   emptyTitle: { ...type.h3, color: colors.ink },
-  emptyCopy: { ...type.body, color: colors.muted, textAlign: 'center' },
-  emptyAction: { marginTop: spacing.sm, minHeight: 46, borderRadius: 14, paddingHorizontal: spacing.md, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  emptyCopy: { ...type.caption, color: colors.muted },
+  emptyAction: { minHeight: 44, borderRadius: 13, paddingHorizontal: spacing.md, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', gap: 5 },
   emptyActionText: { ...type.bodyStrong, color: colors.white },
 });
-

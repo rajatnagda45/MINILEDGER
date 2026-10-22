@@ -40,6 +40,33 @@ PostgreSQL (integer paise, DATE due dates)
 
 The API is authoritative for status and financial totals. The client never recomputes a summary or simulates a successful mutation. See [architecture notes](docs/architecture.md) for the full lifecycle and trade-offs.
 
+## Responsive design
+
+The app is built mobile-first with React Native Web, and composition — not just font size — changes by viewport (`apps/mobile/hooks/use-responsive.ts`):
+
+- **Mobile:** a single natural column with a full-width summary card and a scannable loan list.
+- **Desktop (≥1024px):** a deliberate two-column shell — a summary/overview sidebar beside a dedicated loan-list column — instead of a narrow centred strip. Login uses a two-column split: a brand/product panel (with an illustrative, clearly-labelled sample ledger) beside a focused authentication panel.
+
+### Design system & motion
+
+Tokens live in `apps/mobile/constants/theme.ts` and are applied across every screen: a warm porcelain page, white card surfaces, ink-navy text, cobalt for primary actions and active states, and semantic mint/coral/amber reserved for repaid, overdue, and warning states (never colour alone — status also carries a label and icon). Financial amounts use exact INR formatting with tabular numerals.
+
+Motion is restrained and purposeful (`components/fade-in-view.tsx`): a short fade-and-rise entrance on native (iOS/Android) that honours the OS *reduce motion* setting, plus button press feedback, stable loading skeletons, and a success banner shown only after the server confirms repayment. On React Native Web the entrance renders statically so motion can never conceal content.
+
+## Screenshots
+
+Captured from the running web build against the seeded PostgreSQL database on 22 October 2026.
+
+| Desktop login | Desktop dashboard |
+|---|---|
+| ![Desktop login](docs/screenshots/login-desktop.png) | ![Desktop dashboard](docs/screenshots/dashboard-desktop.png) |
+
+| Mobile login | Mobile dashboard | Add loan |
+|---|---|---|
+| ![Mobile login](docs/screenshots/login-mobile.png) | ![Mobile dashboard](docs/screenshots/dashboard-mobile.png) | ![Add loan](docs/screenshots/add-loan-desktop.png) |
+
+The narrow (mobile) captures were taken at a 500px viewport, which is headless Chrome's minimum window width; the single-column layout is identical at smaller phone widths.
+
 ## Technology
 
 - Mobile: React Native 0.81, Expo SDK 54, Expo Router 6, TypeScript
@@ -183,10 +210,11 @@ Verified on 22 October 2026:
 - 19 automated tests passed across two test files.
 - Expo ESLint completed without warnings or errors.
 - Prisma migration applied successfully to PostgreSQL 16.
-- OTP issue/verification, authenticated loan creation, overdue summary, repayment, and refreshed summary were exercised against the real database.
-- Expo produced successful iOS, Android, and web release bundles.
+- OTP issue/verification (`[DEV OTP]` log), authenticated loan listing, and server-calculated summary were exercised against the real PostgreSQL database.
+- Expo produced a successful web release bundle (`expo export --platform web`).
+- The web build was served and loaded in headless Chrome with a real session token; genuine screenshots of login, dashboard, and add-loan were captured at desktop (1440px) and narrow (500px) viewports — see [Screenshots](#screenshots).
 
-No iOS simulator or connected physical device was available in the build environment, so touch interaction and native visual QA still need the short manual pass in [docs/manual-smoke-test.md](docs/manual-smoke-test.md). A browser preview surface was also unavailable for screenshot capture. No screenshots or device-test claims are fabricated.
+No iOS simulator or connected physical device was available in the build environment, so native touch interaction and iOS/Android visual QA still need the short manual pass in [docs/manual-smoke-test.md](docs/manual-smoke-test.md). The desktop/mobile web visuals are evidenced by the captured screenshots; native-only rendering is not claimed from them. No screenshots or device-test claims are fabricated.
 
 ## Security and limits
 

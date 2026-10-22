@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { z } from 'zod';
 import { Button } from '@/components/button';
+import { FadeInView } from '@/components/fade-in-view';
 import { FormField } from '@/components/form-field';
 import { colors, radii, shadow, spacing, type } from '@/constants/theme';
 import { api, ApiError } from '@/lib/api';
@@ -59,7 +60,7 @@ export default function AddLoanScreen() {
 
           <View style={styles.intro}><Text style={styles.introTitle}>Who did you lend to?</Text><Text style={styles.introCopy}>Add the essentials now. You can follow the repayment from your dashboard.</Text></View>
 
-          <View style={styles.formCard}>
+          <FadeInView delay={60} style={styles.formCard}>
             <Controller control={form.control} name="friendName" render={({ field: { onChange, onBlur, value }, fieldState }) => (
               <FormField label="Friend’s name" placeholder="e.g. Aarav Sharma" autoCapitalize="words" autoCorrect={false} returnKeyType="next" blurOnSubmit={false} value={value} onChangeText={onChange} onBlur={onBlur} onSubmitEditing={() => amountRef.current?.focus()} error={fieldState.error?.message} />
             )} />
@@ -79,7 +80,7 @@ export default function AddLoanScreen() {
                 </View>
               </View>
             )}
-          </View>
+          </FadeInView>
 
           <View style={styles.note}><Ionicons name="information-circle-outline" size={20} color={colors.primary} /><Text style={styles.noteText}>Past due dates are allowed and will be clearly marked overdue as soon as the loan is added.</Text></View>
           {!!error && <View style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite"><Text style={styles.errorText}>{error}</Text></View>}
