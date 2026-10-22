@@ -1,6 +1,9 @@
+import { Platform } from 'react-native';
 import type { ApiErrorBody, AuthSession, Loan, Summary } from '@miniledger/shared';
 
 const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://127.0.0.1:4000/api').replace(/\/$/, '');
+
+export interface ReceiptAsset { uri: string; name: string; mimeType: string }
 
 export class ApiError extends Error {
   constructor(public readonly status: number, public readonly code: string, message: string, public readonly details?: unknown) {
@@ -20,11 +23,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12_000);
   try {
+    const isForm = typeof FormData !== 'undefined' && options.body instanceof FormData;
     const response = await fetch(`${API_URL}${path}`, {
       ...options,
       headers: {
         Accept: 'application/json',
-        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        // Let fetch set the multipart boundary itself; only force JSON otherwise.
+        ...(options.body && !isForm ? { 'Content-Type': 'application/json' } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options.headers,
       },
@@ -36,6 +41,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       if (response.status === 401 && token) onUnauthorized?.();
       throw new ApiError(response.status, body?.error.code ?? 'REQUEST_FAILED', body?.error.message ?? 'Unable to complete the request.', body?.error.details);
     }
+    if (response.status === 204) return undefined as T;
     return await response.json() as T;
   } catch (error) {
     if (error instanceof ApiError) throw error;
@@ -60,5 +66,20 @@ export const api = {
     method: 'POST', body: JSON.stringify(input),
   }),
   repayLoan: (id: string) => request<{ loan: Loan }>(`/loans/${id}/repay`, { method: 'PATCH' }),
+  uploadReceipt: async (loanId: string, asset: ReceiptAsset) => {
+    const form = new FormData();
+    if (Platform.OS === 'web') {
+      const blob = await (await fetch(asset.uri)).blob();
+      form.append('receipt', blob, asset.name);
+    } else {
+      // React Native's FormData accepts a { uri, name, type } file descriptor.
+      form.append('receipt', { uri: asset.uri, name: asset.name, type: asset.mimeType } as unknown as Blob);
+    }
+    return request<{ loan: Loan }>(`/loans/${loanId}/receipt`, { method: 'POST', body: form });
+  },
+  deleteReceipt: (loanId: string) => request<void>(`/loans/${loanId}/receipt`, { method: 'DELETE' }),
+  // Full URL + auth header for retrieving a receipt image (see ReceiptImage).
+  receiptEndpoint: (loanId: string) => `${API_URL}/loans/${loanId}/receipt`,
+  authHeaders: () => (token ? { Authorization: `Bearer ${token}` } : {}),
 };
 

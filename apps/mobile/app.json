@@ -9,7 +9,14 @@
     "newArchEnabled": true,
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "MiniLedger uses your photos so you can attach a receipt image to a loan.",
+          "cameraPermission": "MiniLedger uses your camera so you can photograph a receipt for a loan."
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": true,

@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { usePreventRemove } from '@react-navigation/native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { router, useNavigation } from 'expo-router';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,8 +12,9 @@ import { z } from 'zod';
 import { Button } from '@/components/button';
 import { FadeInView } from '@/components/fade-in-view';
 import { FormField } from '@/components/form-field';
+import { ReceiptPicker } from '@/components/receipt-picker';
 import { colors, radii, shadow, spacing, type } from '@/constants/theme';
-import { api, ApiError } from '@/lib/api';
+import { api, ApiError, type ReceiptAsset } from '@/lib/api';
 import { confirmAction, notify } from '@/lib/confirm';
 import { formatDate, isValidIsoDate, toIsoDate } from '@/lib/format';
 
@@ -30,19 +31,38 @@ export default function AddLoanScreen() {
   const queryClient = useQueryClient();
   const navigation = useNavigation();
   const amountRef = useRef<TextInput>(null);
+  const [receipt, setReceipt] = useState<ReceiptAsset | null>(null);
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { friendName: '', amount: '', dueDate: toIsoDate(initialDueDate()) } });
   const mutation = useMutation({
-    mutationFn: (values: Values) => api.createLoan({ friendName: values.friendName.trim(), amount: Number(values.amount), dueDate: values.dueDate }),
+    mutationFn: async (values: Values) => {
+      // Create the loan first, then attach the optional receipt to it. A failed
+      // receipt upload does not undo the created loan — it can be added later.
+      const { loan } = await api.createLoan({ friendName: values.friendName.trim(), amount: Number(values.amount), dueDate: values.dueDate });
+      if (!receipt) return { loan, receiptError: null as string | null };
+      try {
+        await api.uploadReceipt(loan.id, receipt);
+        return { loan, receiptError: null as string | null };
+      } catch (uploadError) {
+        return { loan, receiptError: uploadError instanceof ApiError ? uploadError.message : 'The receipt could not be uploaded.' };
+      }
+    },
     onSuccess: async (result) => {
-      await Promise.all([queryClient.invalidateQueries({ queryKey: ['loans'] }), queryClient.invalidateQueries({ queryKey: ['summary'] })]);
-      notify('Loan added', `${result.loan.friendName} now appears in your ledger.`, () => router.back());
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['loans'] }),
+        queryClient.invalidateQueries({ queryKey: ['summary'] }),
+        queryClient.invalidateQueries({ queryKey: ['loan', result.loan.id] }),
+      ]);
+      const message = result.receiptError
+        ? `${result.loan.friendName} was added, but the receipt didn’t upload: ${result.receiptError} You can attach it from the loan’s details.`
+        : `${result.loan.friendName} now appears in your ledger.`;
+      notify('Loan added', message, () => router.back());
     },
   });
   const dueDate = form.watch('dueDate');
   const selectedDate = new Date(`${dueDate}T12:00:00`);
   const error = mutation.error instanceof ApiError ? mutation.error.message : null;
   const submit = form.handleSubmit((values) => mutation.mutate(values));
-  usePreventRemove(form.formState.isDirty && !mutation.isSuccess, ({ data }) => {
+  usePreventRemove((form.formState.isDirty || receipt !== null) && !mutation.isSuccess, ({ data }) => {
     confirmAction(
       { title: 'Discard this loan?', message: 'Your entered details have not been saved.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', destructive: true },
       () => navigation.dispatch(data.action),
@@ -81,6 +101,9 @@ export default function AddLoanScreen() {
                 </View>
               </View>
             )}
+
+            <View style={styles.divider} />
+            <ReceiptPicker value={receipt} onChange={setReceipt} disabled={mutation.isPending} />
           </FadeInView>
 
           <View style={styles.note}><Ionicons name="information-circle-outline" size={20} color={colors.primary} /><Text style={styles.noteText}>Past due dates are allowed and will be clearly marked overdue as soon as the loan is added.</Text></View>
@@ -101,6 +124,7 @@ const styles = StyleSheet.create({
   navTitle: { alignItems: 'center' }, navEyebrow: { ...type.micro, color: colors.primary }, navHeading: { ...type.h3, color: colors.ink }, navSpacer: { width: 44 },
   intro: { gap: spacing.xs, paddingTop: spacing.sm }, introTitle: { ...type.h1, color: colors.ink }, introCopy: { ...type.body, color: colors.muted },
   formCard: { backgroundColor: colors.surface, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.line, padding: spacing.lg, gap: spacing.xl, ...shadow },
+  divider: { height: 1, backgroundColor: colors.line, marginHorizontal: -spacing.lg },
   dateGroup: { gap: spacing.xs }, fieldLabel: { ...type.caption, color: colors.ink, textTransform: 'uppercase' },
   dateCard: { minHeight: 66, borderRadius: radii.md, borderWidth: 1.5, borderColor: colors.line, flexDirection: 'row', alignItems: 'center', padding: spacing.sm, gap: spacing.sm },
   dateIcon: { width: 42, height: 42, borderRadius: 13, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
