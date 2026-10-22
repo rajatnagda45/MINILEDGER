@@ -1,15 +1,21 @@
-import { PrismaClient, type Loan as PrismaLoan, type User as PrismaUser } from '@prisma/client';
-import type { DataStore, LoanFilters, LoanRecord, UserRecord } from './types.js';
+import { PrismaClient, type Loan as PrismaLoan, type Receipt as PrismaReceipt, type User as PrismaUser } from '@prisma/client';
+import type { DataStore, LoanFilters, LoanRecord, ReceiptInput, ReceiptRecord, ReceiptUpsertResult, UserRecord } from './types.js';
 
 function mapUser(user: PrismaUser): UserRecord {
   return user;
 }
 
-function mapLoan(loan: PrismaLoan): LoanRecord {
+function mapReceipt(receipt: PrismaReceipt): ReceiptRecord {
+  return { id: receipt.id, loanId: receipt.loanId, storageKey: receipt.storageKey, mimeType: receipt.mimeType, byteSize: receipt.byteSize, createdAt: receipt.createdAt };
+}
+
+function mapLoan(loan: PrismaLoan & { receipt?: PrismaReceipt | null }): LoanRecord {
+  const { receipt, ...rest } = loan;
   return {
-    ...loan,
+    ...rest,
     currency: 'INR',
     dueDate: loan.dueDate.toISOString().slice(0, 10),
+    receipt: receipt ? mapReceipt(receipt) : null,
   };
 }
 
@@ -37,6 +43,7 @@ export class PrismaDataStore implements DataStore {
         amountPaise: input.amountPaise,
         dueDate: new Date(`${input.dueDate}T00:00:00.000Z`),
       },
+      include: { receipt: true },
     });
     return mapLoan(loan);
   }
@@ -45,12 +52,13 @@ export class PrismaDataStore implements DataStore {
     const loans = await this.prisma.loan.findMany({
       where: { userId, ...(filters.status ? { status: filters.status } : {}) },
       orderBy: [{ status: 'asc' }, { dueDate: 'asc' }, { createdAt: 'desc' }],
+      include: { receipt: true },
     });
     return loans.map(mapLoan);
   }
 
   async findLoan(userId: string, loanId: string): Promise<LoanRecord | null> {
-    const loan = await this.prisma.loan.findFirst({ where: { id: loanId, userId } });
+    const loan = await this.prisma.loan.findFirst({ where: { id: loanId, userId }, include: { receipt: true } });
     return loan ? mapLoan(loan) : null;
   }
 
@@ -61,12 +69,35 @@ export class PrismaDataStore implements DataStore {
         data: { status: 'REPAID', repaidAt },
       });
       if (update.count === 1) {
-        return mapLoan(await transaction.loan.findUniqueOrThrow({ where: { id: loanId } }));
+        return mapLoan(await transaction.loan.findUniqueOrThrow({ where: { id: loanId }, include: { receipt: true } }));
       }
       const existing = await transaction.loan.findFirst({ where: { id: loanId, userId } });
       if (!existing) return null;
       return 'ALREADY_REPAID';
     });
   }
-}
 
+  async upsertReceipt(loanId: string, input: ReceiptInput): Promise<ReceiptUpsertResult> {
+    return this.prisma.$transaction(async (transaction) => {
+      const previous = await transaction.receipt.findUnique({ where: { loanId } });
+      const record = await transaction.receipt.upsert({
+        where: { loanId },
+        create: { loanId, ...input },
+        update: { storageKey: input.storageKey, mimeType: input.mimeType, byteSize: input.byteSize, createdAt: new Date() },
+      });
+      return { record: mapReceipt(record), previous: previous ? mapReceipt(previous) : null };
+    });
+  }
+
+  async findReceiptByLoan(loanId: string): Promise<ReceiptRecord | null> {
+    const receipt = await this.prisma.receipt.findUnique({ where: { loanId } });
+    return receipt ? mapReceipt(receipt) : null;
+  }
+
+  async deleteReceiptByLoan(loanId: string): Promise<ReceiptRecord | null> {
+    const receipt = await this.prisma.receipt.findUnique({ where: { loanId } });
+    if (!receipt) return null;
+    await this.prisma.receipt.delete({ where: { loanId } });
+    return mapReceipt(receipt);
+  }
+}

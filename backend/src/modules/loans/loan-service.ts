@@ -101,7 +101,10 @@ export class LoanService {
       dueDate: loan.dueDate,
       status: loan.status,
       isOverdue: isOverdue(loan.dueDate, loan.status, today),
-      receiptAvailable: Boolean(loan.receiptPath),
+      receiptAvailable: loan.receipt !== null,
+      receipt: loan.receipt
+        ? { mimeType: loan.receipt.mimeType, byteSize: loan.receipt.byteSize, createdAt: loan.receipt.createdAt.toISOString() }
+        : null,
       createdAt: loan.createdAt.toISOString(),
       updatedAt: loan.updatedAt.toISOString(),
       repaidAt: loan.repaidAt?.toISOString() ?? null,

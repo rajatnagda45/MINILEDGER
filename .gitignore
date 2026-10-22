@@ -6,6 +6,8 @@ node_modules/
 dist/
 coverage/
 uploads/
+.receipts/
+backend/.receipts/
 *.log
 .DS_Store
 apps/mobile/.expo/

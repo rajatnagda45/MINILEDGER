@@ -1,5 +1,11 @@
 export type LoanStatus = 'OUTSTANDING' | 'REPAID';
 
+export interface ReceiptMeta {
+  mimeType: string;
+  byteSize: number;
+  createdAt: string;
+}
+
 export interface Loan {
   id: string;
   friendName: string;
@@ -9,6 +15,7 @@ export interface Loan {
   status: LoanStatus;
   isOverdue: boolean;
   receiptAvailable: boolean;
+  receipt: ReceiptMeta | null;
   createdAt: string;
   updatedAt: string;
   repaidAt: string | null;

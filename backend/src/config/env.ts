@@ -9,6 +9,9 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('7d'),
   APP_TIME_ZONE: z.string().default('Asia/Kolkata'),
   MOBILE_ORIGIN: z.string().default('*'),
+  // Receipts: a private directory (never statically served) and a max upload size.
+  RECEIPT_STORAGE_DIR: z.string().default('.receipts'),
+  RECEIPT_MAX_BYTES: z.coerce.number().int().positive().default(5 * 1024 * 1024),
 });
 
 export type Env = z.infer<typeof envSchema>;

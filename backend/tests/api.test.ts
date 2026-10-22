@@ -14,6 +14,8 @@ const env: Env = {
   JWT_EXPIRES_IN: '1h',
   APP_TIME_ZONE: 'Asia/Kolkata',
   MOBILE_ORIGIN: '*',
+  RECEIPT_STORAGE_DIR: '.receipts-test',
+  RECEIPT_MAX_BYTES: 5 * 1024 * 1024,
 };
 
 describe('MiniLedger API', () => {

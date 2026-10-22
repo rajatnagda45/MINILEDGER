@@ -1,9 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import type { DataStore, LoanFilters, LoanRecord, UserRecord } from '../src/data/types.js';
+import type { DataStore, LoanFilters, LoanRecord, ReceiptInput, ReceiptRecord, ReceiptUpsertResult, UserRecord } from '../src/data/types.js';
 
 export class MemoryStore implements DataStore {
   readonly users: UserRecord[] = [];
   readonly loans: LoanRecord[] = [];
+  readonly receipts = new Map<string, ReceiptRecord>();
+
+  private withReceipt(loan: LoanRecord): LoanRecord {
+    return { ...loan, receipt: this.receipts.get(loan.id) ?? null };
+  }
 
   async upsertUser(phoneNumber: string): Promise<UserRecord> {
     const existing = this.users.find((user) => user.phoneNumber === phoneNumber);
@@ -28,33 +33,51 @@ export class MemoryStore implements DataStore {
       dueDate: input.dueDate,
       currency: 'INR',
       status: 'OUTSTANDING',
-      receiptPath: null,
+      receipt: null,
       repaidAt: null,
       createdAt: now,
       updatedAt: now,
     };
     this.loans.push(loan);
-    return loan;
+    return this.withReceipt(loan);
   }
 
   async listLoans(userId: string, filters: LoanFilters = {}): Promise<LoanRecord[]> {
     return this.loans
       .filter((loan) => loan.userId === userId && (!filters.status || loan.status === filters.status))
-      .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+      .map((loan) => this.withReceipt(loan));
   }
 
   async findLoan(userId: string, loanId: string): Promise<LoanRecord | null> {
-    return this.loans.find((loan) => loan.id === loanId && loan.userId === userId) ?? null;
+    const loan = this.loans.find((item) => item.id === loanId && item.userId === userId);
+    return loan ? this.withReceipt(loan) : null;
   }
 
   async repayLoan(userId: string, loanId: string, repaidAt: Date): Promise<LoanRecord | 'ALREADY_REPAID' | null> {
-    const loan = await this.findLoan(userId, loanId);
+    const loan = this.loans.find((item) => item.id === loanId && item.userId === userId);
     if (!loan) return null;
     if (loan.status === 'REPAID') return 'ALREADY_REPAID';
     loan.status = 'REPAID';
     loan.repaidAt = repaidAt;
     loan.updatedAt = repaidAt;
-    return loan;
+    return this.withReceipt(loan);
+  }
+
+  async upsertReceipt(loanId: string, input: ReceiptInput): Promise<ReceiptUpsertResult> {
+    const previous = this.receipts.get(loanId) ?? null;
+    const record: ReceiptRecord = { id: previous?.id ?? randomUUID(), loanId, ...input, createdAt: new Date() };
+    this.receipts.set(loanId, record);
+    return { record, previous };
+  }
+
+  async findReceiptByLoan(loanId: string): Promise<ReceiptRecord | null> {
+    return this.receipts.get(loanId) ?? null;
+  }
+
+  async deleteReceiptByLoan(loanId: string): Promise<ReceiptRecord | null> {
+    const receipt = this.receipts.get(loanId) ?? null;
+    if (receipt) this.receipts.delete(loanId);
+    return receipt;
   }
 }
-

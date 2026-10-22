@@ -31,13 +31,25 @@ model Loan {
   currency    String     @default("INR") @db.Char(3)
   dueDate     DateTime   @map("due_date") @db.Date
   status      LoanStatus @default(OUTSTANDING)
-  receiptPath String?    @map("receipt_path")
   repaidAt    DateTime?  @map("repaid_at")
+  receipt     Receipt?
   createdAt   DateTime   @default(now()) @map("created_at")
   updatedAt   DateTime   @updatedAt @map("updated_at")
 
   @@index([userId, status])
   @@index([userId, dueDate])
   @@map("loans")
+}
+
+model Receipt {
+  id         String   @id @default(uuid()) @db.Uuid
+  loanId     String   @unique @map("loan_id") @db.Uuid
+  loan       Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  storageKey String   @map("storage_key") @db.VarChar(128)
+  mimeType   String   @map("mime_type") @db.VarChar(40)
+  byteSize   Int      @map("byte_size")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("receipts")
 }
 
