@@ -21,6 +21,7 @@ export default function LoginScreen() {
     onSuccess: (data) => router.push({ pathname: '/(auth)/verify', params: { phone: data.phoneNumber, resend: String(data.resendInSeconds) } }),
   });
   const serverError = sendOtp.error instanceof ApiError ? sendOtp.error.message : null;
+  const submit = form.handleSubmit((values) => sendOtp.mutate(values.phone));
 
   return (
     <KeyboardAvoidingView style={styles.page} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -50,15 +51,17 @@ export default function LoginScreen() {
                 autoComplete="tel"
                 textContentType="telephoneNumber"
                 maxLength={11}
+                returnKeyType="go"
                 value={formatPhoneInput(value)}
                 onChangeText={(text) => onChange(text.replace(/\D/g, '').slice(0, 10))}
                 onBlur={onBlur}
+                onSubmitEditing={submit}
                 error={fieldState.error?.message}
               />
             )}
           />
           {!!serverError && <Text style={styles.serverError} accessibilityLiveRegion="polite">{serverError}</Text>}
-          <Button label="Continue securely" loading={sendOtp.isPending} onPress={form.handleSubmit((values) => sendOtp.mutate(values.phone))} />
+          <Button label="Continue securely" loading={sendOtp.isPending} onPress={submit} />
           <View style={styles.securityRow}>
             <Text style={styles.lock}>●</Text>
             <Text style={styles.securityText}>No password needed · your data stays private</Text>

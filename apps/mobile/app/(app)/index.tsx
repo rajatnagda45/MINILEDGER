@@ -105,7 +105,7 @@ export default function DashboardScreen() {
             {!!error && !isInitialLoading && <ErrorState message={error instanceof ApiError ? error.message : 'Please check your connection.'} onRetry={() => void refresh()} />}
           </View>
         )}
-        ListEmptyComponent={!isInitialLoading && !error ? <EmptyState filtered={filter !== 'ALL'} onAdd={() => router.push('/(app)/add-loan')} /> : null}
+        ListEmptyComponent={!isInitialLoading && !error ? <EmptyState filtered={filter !== 'ALL'} onAdd={() => router.push('/(app)/add-loan')} onShowAll={() => setFilter('ALL')} /> : null}
         ListFooterComponent={<View style={styles.footerSpace} />}
       />
     </SafeAreaView>
@@ -150,13 +150,16 @@ function SummaryStat({ label, value, tone }: { label: string; value: string; ton
   return <View style={styles.summaryStat}><Text style={styles.statLabel}>{label}</Text><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.62} style={[styles.statValue, tone === 'success' && styles.statSuccess, tone === 'danger' && styles.statDanger]}>{value}</Text></View>;
 }
 
-function EmptyState({ filtered, onAdd }: { filtered: boolean; onAdd: () => void }) {
+function EmptyState({ filtered, onAdd, onShowAll }: { filtered: boolean; onAdd: () => void; onShowAll: () => void }) {
   return (
     <View style={styles.empty}>
       <View style={styles.emptyIcon}><Ionicons name={filtered ? 'filter-outline' : 'people-outline'} size={29} color={colors.primary} /></View>
       <Text style={styles.emptyTitle}>{filtered ? 'No loans in this view' : 'Your ledger is ready'}</Text>
       <Text style={styles.emptyCopy}>{filtered ? 'Try another filter to see your entries.' : 'Add your first friendly loan. We’ll keep the amount and due date easy to follow.'}</Text>
-      {!filtered && <Pressable onPress={onAdd} style={styles.emptyAction}><Ionicons name="add" size={18} color={colors.white} /><Text style={styles.emptyActionText}>Add first loan</Text></Pressable>}
+      <Pressable accessibilityRole="button" onPress={filtered ? onShowAll : onAdd} style={styles.emptyAction}>
+        <Ionicons name={filtered ? 'list-outline' : 'add'} size={18} color={colors.white} />
+        <Text style={styles.emptyActionText}>{filtered ? 'Show all loans' : 'Add first loan'}</Text>
+      </Pressable>
     </View>
   );
 }

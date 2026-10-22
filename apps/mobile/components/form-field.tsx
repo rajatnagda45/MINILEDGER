@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 import { colors, radii, spacing, type } from '@/constants/theme';
 
@@ -8,13 +9,14 @@ interface FormFieldProps extends TextInputProps {
   hint?: string | undefined;
 }
 
-export function FormField({ label, error, prefix, hint, style, ...props }: FormFieldProps) {
+export const FormField = forwardRef<TextInput, FormFieldProps>(function FormField({ label, error, prefix, hint, style, ...props }, ref) {
   return (
     <View style={styles.group}>
       <Text style={styles.label}>{label}</Text>
       <View style={[styles.inputShell, error && styles.inputError]}>
         {prefix && <Text style={styles.prefix}>{prefix}</Text>}
         <TextInput
+          ref={ref}
           accessibilityLabel={label}
           placeholderTextColor={colors.muted}
           selectionColor={colors.primary}
@@ -26,7 +28,7 @@ export function FormField({ label, error, prefix, hint, style, ...props }: FormF
       {!error && !!hint && <Text style={styles.hint}>{hint}</Text>}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   group: { gap: spacing.xs },

@@ -3,8 +3,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { usePreventRemove } from '@react-navigation/native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { router, useNavigation } from 'expo-router';
+import { useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { z } from 'zod';
@@ -26,6 +27,7 @@ function initialDueDate() { const date = new Date(); date.setDate(date.getDate()
 export default function AddLoanScreen() {
   const queryClient = useQueryClient();
   const navigation = useNavigation();
+  const amountRef = useRef<TextInput>(null);
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { friendName: '', amount: '', dueDate: toIsoDate(initialDueDate()) } });
   const mutation = useMutation({
     mutationFn: (values: Values) => api.createLoan({ friendName: values.friendName.trim(), amount: Number(values.amount), dueDate: values.dueDate }),
@@ -37,6 +39,7 @@ export default function AddLoanScreen() {
   const dueDate = form.watch('dueDate');
   const selectedDate = new Date(`${dueDate}T12:00:00`);
   const error = mutation.error instanceof ApiError ? mutation.error.message : null;
+  const submit = form.handleSubmit((values) => mutation.mutate(values));
   usePreventRemove(form.formState.isDirty && !mutation.isSuccess, ({ data }) => {
     Alert.alert('Discard this loan?', 'Your entered details have not been saved.', [
       { text: 'Keep editing', style: 'cancel' },
@@ -58,29 +61,29 @@ export default function AddLoanScreen() {
 
           <View style={styles.formCard}>
             <Controller control={form.control} name="friendName" render={({ field: { onChange, onBlur, value }, fieldState }) => (
-              <FormField label="Friend’s name" placeholder="e.g. Aarav Sharma" autoCapitalize="words" autoCorrect={false} returnKeyType="next" value={value} onChangeText={onChange} onBlur={onBlur} error={fieldState.error?.message} />
+              <FormField label="Friend’s name" placeholder="e.g. Aarav Sharma" autoCapitalize="words" autoCorrect={false} returnKeyType="next" blurOnSubmit={false} value={value} onChangeText={onChange} onBlur={onBlur} onSubmitEditing={() => amountRef.current?.focus()} error={fieldState.error?.message} />
             )} />
             <Controller control={form.control} name="amount" render={({ field: { onChange, onBlur, value }, fieldState }) => (
-              <FormField label="Amount lent" prefix="₹" placeholder="2,500" keyboardType="decimal-pad" value={value} onChangeText={(text) => onChange(text.replace(/,/g, '').replace(/[^\d.]/g, ''))} onBlur={onBlur} error={fieldState.error?.message} hint="Amounts are stored exactly to the paise." />
+              <FormField ref={amountRef} label="Amount lent" prefix="₹" placeholder="2,500" keyboardType="decimal-pad" returnKeyType="done" value={value} onChangeText={(text) => onChange(text.replace(/,/g, '').replace(/[^\d.]/g, ''))} onBlur={onBlur} onSubmitEditing={submit} error={fieldState.error?.message} hint="Amounts are stored exactly to the paise." />
             )} />
 
-            <View style={styles.dateGroup}>
-              <Text style={styles.fieldLabel}>DUE DATE</Text>
-              {Platform.OS === 'web' ? (
-                <Controller control={form.control} name="dueDate" render={({ field: { onChange, value }, fieldState }) => <FormField label="Date (YYYY-MM-DD)" value={value} onChangeText={onChange} error={fieldState.error?.message} />} />
-              ) : (
+            {Platform.OS === 'web' ? (
+              <Controller control={form.control} name="dueDate" render={({ field: { onChange, value }, fieldState }) => <FormField label="Due date" placeholder="YYYY-MM-DD" value={value} onChangeText={onChange} returnKeyType="done" onSubmitEditing={submit} error={fieldState.error?.message} hint="Use YYYY-MM-DD, for example 2026-10-29." />} />
+            ) : (
+              <View style={styles.dateGroup}>
+                <Text style={styles.fieldLabel}>DUE DATE</Text>
                 <View style={styles.dateCard}>
                   <View style={styles.dateIcon}><Ionicons name="calendar-outline" size={21} color={colors.primary} /></View>
                   <View style={styles.dateCopy}><Text style={styles.dateValue}>{formatDate(dueDate)}</Text><Text style={styles.dateHint}>Due today is not considered overdue</Text></View>
                   <DateTimePicker value={selectedDate} mode="date" onChange={(_, date) => date && form.setValue('dueDate', toIsoDate(date), { shouldValidate: true })} accentColor={colors.primary} />
                 </View>
-              )}
-            </View>
+              </View>
+            )}
           </View>
 
           <View style={styles.note}><Ionicons name="information-circle-outline" size={20} color={colors.primary} /><Text style={styles.noteText}>Past due dates are allowed and will be clearly marked overdue as soon as the loan is added.</Text></View>
           {!!error && <View style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite"><Text style={styles.errorText}>{error}</Text></View>}
-          <Button label="Add to my ledger" loading={mutation.isPending} onPress={form.handleSubmit((values) => mutation.mutate(values))} />
+          <Button label="Add to my ledger" loading={mutation.isPending} onPress={submit} />
           <Text style={styles.footer}>Your financial totals come from the server and update after this loan is saved.</Text>
         </ScrollView>
       </KeyboardAvoidingView>

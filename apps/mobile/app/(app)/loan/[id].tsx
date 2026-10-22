@@ -46,10 +46,10 @@ export default function LoanDetailScreen() {
               <DetailRow icon="calendar-outline" label="Due date" value={formatDate(loan.dueDate)} warning={loan.isOverdue} />
               <DetailRow icon="add-circle-outline" label="Added on" value={new Date(loan.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} />
               {loan.repaidAt && <DetailRow icon="checkmark-circle-outline" label="Repaid on" value={new Date(loan.repaidAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} />}
-              <DetailRow icon="receipt-outline" label="Receipt" value={loan.receiptAvailable ? 'Attached' : 'Not attached'} />
+              {loan.receiptAvailable && <DetailRow icon="receipt-outline" label="Receipt" value="Attached" />}
             </View>
             {loan.status === 'OUTSTANDING' && <Button label="Mark as repaid" loading={repay.isPending} onPress={() => Alert.alert('Confirm repayment', `Did ${loan.friendName} return ${formatCurrency(loan.amount)}?`, [{ text: 'Cancel', style: 'cancel' }, { text: 'Yes, mark repaid', onPress: () => repay.mutate() }])} />}
-            {loan.status === 'REPAID' && <View style={styles.settled}><Ionicons name="shield-checkmark-outline" size={22} color={colors.success} /><View><Text style={styles.settledTitle}>This loan is settled</Text><Text style={styles.settledCopy}>It no longer contributes to outstanding or overdue totals.</Text></View></View>}
+            {loan.status === 'REPAID' && <View style={styles.settled}><Ionicons name="shield-checkmark-outline" size={22} color={colors.success} /><View style={styles.settledBody}><Text style={styles.settledTitle}>This loan is settled</Text><Text style={styles.settledCopy}>It no longer contributes to outstanding or overdue totals.</Text></View></View>}
           </>
         )}
       </ScrollView>
@@ -69,6 +69,6 @@ const styles = StyleSheet.create({
   name: { ...type.h2, color: colors.ink }, amount: { ...type.display, color: colors.ink, fontVariant: ['tabular-nums'] },
   status: { borderRadius: radii.pill, paddingHorizontal: spacing.sm, paddingVertical: 7, flexDirection: 'row', alignItems: 'center', gap: 5 }, statusOverdue: { backgroundColor: colors.dangerSoft }, statusRepaid: { backgroundColor: colors.successSoft }, statusActive: { backgroundColor: colors.primarySoft }, statusText: { ...type.caption }, textOverdue: { color: colors.danger }, textRepaid: { color: colors.success }, textActive: { color: colors.primaryDark },
   details: { backgroundColor: colors.surface, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' }, row: { minHeight: 64, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line, gap: spacing.sm }, rowIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center' }, rowLabel: { ...type.body, color: colors.muted, flex: 1 }, rowValue: { ...type.bodyStrong, color: colors.ink },
-  settled: { backgroundColor: colors.successSoft, borderRadius: radii.md, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }, settledTitle: { ...type.bodyStrong, color: colors.success }, settledCopy: { ...type.caption, color: colors.success, flexShrink: 1 },
+  settled: { backgroundColor: colors.successSoft, borderRadius: radii.md, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }, settledBody: { flex: 1 }, settledTitle: { ...type.bodyStrong, color: colors.success }, settledCopy: { ...type.caption, color: colors.success },
 });
 

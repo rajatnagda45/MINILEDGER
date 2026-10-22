@@ -56,6 +56,8 @@ export default function VerifyScreen() {
             autoComplete="one-time-code"
             maxLength={6}
             autoFocus
+            returnKeyType="done"
+            onSubmitEditing={() => otp.length === 6 && verify.mutate()}
             accessibilityLabel="Six-digit verification code"
             accessibilityHint="Enter or paste the code shown in the backend terminal"
             style={styles.hiddenInput}
@@ -77,7 +79,7 @@ export default function VerifyScreen() {
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.canvas },
-  content: { flex: 1, width: '100%', maxWidth: 520, alignSelf: 'center', paddingHorizontal: spacing.xl, paddingTop: 62, gap: spacing.xl },
+  content: { flex: 1, width: '100%', maxWidth: 520, alignSelf: 'center', paddingHorizontal: spacing.lg, paddingTop: 62, gap: spacing.xl },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   back: { width: 44, height: 44, borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
   hero: { alignItems: 'center', gap: spacing.sm, marginTop: spacing.xl },
@@ -85,8 +87,8 @@ const styles = StyleSheet.create({
   title: { ...type.h1, color: colors.ink },
   subtitle: { ...type.body, color: colors.muted, textAlign: 'center', maxWidth: 345 },
   phone: { color: colors.ink, fontWeight: '700' },
-  otpWrap: { flexDirection: 'row', gap: 8, justifyContent: 'center', position: 'relative' },
-  digit: { width: 48, height: 58, borderRadius: radii.md, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadow },
+  otpWrap: { flexDirection: 'row', gap: 6, justifyContent: 'center', position: 'relative', width: '100%' },
+  digit: { flex: 1, maxWidth: 48, minWidth: 0, height: 58, borderRadius: radii.md, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadow },
   activeDigit: { borderColor: colors.primary },
   filledDigit: { backgroundColor: colors.primarySoft, borderColor: '#C9D6FF' },
   digitText: { fontSize: 23, lineHeight: 28, fontWeight: '700', color: colors.ink, fontVariant: ['tabular-nums'] },

@@ -25,7 +25,7 @@ export function LoanCard({ loan, onPress, onRepay, repaying = false }: { loan: L
             <View style={styles.metaRow}>
               <Ionicons name={repaid ? 'checkmark-circle-outline' : 'calendar-outline'} size={14} color={loan.isOverdue ? colors.danger : repaid ? colors.success : colors.muted} />
               <Text numberOfLines={1} style={[styles.meta, loan.isOverdue && styles.overdueText, repaid && styles.repaidText]}>
-                {repaid ? `Repaid ${loan.repaidAt ? new Date(loan.repaidAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : ''}` : loan.isOverdue ? `Overdue · due ${formatDate(loan.dueDate)}` : `Due ${formatDate(loan.dueDate)}`}
+                {repaid ? `Repaid ${loan.repaidAt ? new Date(loan.repaidAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : ''}` : `Due ${formatDate(loan.dueDate)}`}
               </Text>
             </View>
           </View>
@@ -42,10 +42,10 @@ export function LoanCard({ loan, onPress, onRepay, repaying = false }: { loan: L
 
       {!repaid && (
         <View style={styles.footer}>
-          <View style={styles.receiptLabel}>
-            <Ionicons name={loan.receiptAvailable ? 'receipt' : 'receipt-outline'} size={15} color={colors.muted} />
-            <Text style={styles.receiptText}>{loan.receiptAvailable ? 'Receipt attached' : 'No receipt'}</Text>
-          </View>
+          {loan.receiptAvailable && <View style={styles.receiptLabel}>
+            <Ionicons name="receipt" size={15} color={colors.muted} />
+            <Text style={styles.receiptText}>Receipt attached</Text>
+          </View>}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Mark ${loan.friendName}'s loan as repaid`}
@@ -94,10 +94,10 @@ const styles = StyleSheet.create({
   badgeTextActive: { color: colors.primaryDark },
   badgeTextOverdue: { color: colors.danger },
   badgeTextRepaid: { color: colors.success },
-  footer: { minHeight: 54, paddingHorizontal: spacing.md, borderTopWidth: 1, borderTopColor: colors.line, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  footer: { minHeight: 54, paddingHorizontal: spacing.md, borderTopWidth: 1, borderTopColor: colors.line, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
   receiptLabel: { flexDirection: 'row', gap: 5, alignItems: 'center' },
   receiptText: { ...type.caption, color: colors.muted },
-  repay: { minHeight: 40, borderRadius: radii.sm, backgroundColor: colors.primarySoft, paddingHorizontal: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  repay: { minHeight: 40, borderRadius: radii.sm, backgroundColor: colors.primarySoft, paddingHorizontal: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto' },
   repayPressed: { opacity: 0.7 },
   repayText: { ...type.caption, color: colors.primaryDark },
   disabled: { opacity: 0.5 },

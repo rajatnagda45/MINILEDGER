@@ -1,8 +1,10 @@
 export function formatCurrency(value: number): string {
+  const hasPaise = Math.round(value * 100) % 100 !== 0;
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
-    maximumFractionDigits: value % 1 === 0 ? 0 : 2,
+    minimumFractionDigits: hasPaise ? 2 : 0,
+    maximumFractionDigits: hasPaise ? 2 : 0,
   }).format(value);
 }
 
