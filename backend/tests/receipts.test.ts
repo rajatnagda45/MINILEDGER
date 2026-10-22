@@ -195,6 +195,17 @@ describe('receipts', () => {
     await request(app).get(`/api/loans/${loan.id}/receipt`).set('Authorization', `Bearer ${other}`).expect(404);
   });
 
+  it("denies cross-user receipt deletion without revealing the receipt", async () => {
+    const owner = await signIn('+919876543210');
+    const other = await signIn('+919876543211');
+    const loan = await createLoan(owner);
+    await upload(owner, loan.id, PNG).expect(201);
+    await request(app).delete(`/api/loans/${loan.id}/receipt`).set('Authorization', `Bearer ${other}`).expect(404);
+    // Owner's receipt is untouched.
+    await request(app).get(`/api/loans/${loan.id}/receipt`).set('Authorization', `Bearer ${owner}`).expect(200);
+    expect(storage.objects.size).toBe(1);
+  });
+
   it('returns 404 for a missing receipt on get and delete', async () => {
     const token = await signIn();
     const loan = await createLoan(token);

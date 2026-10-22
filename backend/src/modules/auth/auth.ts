@@ -32,6 +32,7 @@ export class AuthService {
     this.otp.verify(phoneNumber, otp);
     const user = await this.store.upsertUser(phoneNumber);
     const token = jwt.sign({ sub: user.id, phoneNumber: user.phoneNumber }, this.env.JWT_SECRET, {
+      algorithm: 'HS256',
       expiresIn: this.env.JWT_EXPIRES_IN as NonNullable<jwt.SignOptions['expiresIn']>,
       issuer: 'miniledger-api',
       audience: 'miniledger-mobile',
@@ -43,6 +44,7 @@ export class AuthService {
     if (!header?.startsWith('Bearer ')) throw new AppError(401, 'UNAUTHENTICATED', 'Please sign in to continue.');
     try {
       const payload = jwt.verify(header.slice(7), this.env.JWT_SECRET, {
+        algorithms: ['HS256'], // pin the algorithm: reject alg:none and algorithm-confusion attempts
         issuer: 'miniledger-api',
         audience: 'miniledger-mobile',
       });
