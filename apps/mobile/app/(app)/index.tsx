@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { Loan, Summary } from '@miniledger/shared';
@@ -12,6 +12,7 @@ import { LoanCard } from '@/components/loan-card';
 import { colors, radii, shadow, spacing, type } from '@/constants/theme';
 import { useResponsive } from '@/hooks/use-responsive';
 import { api, ApiError } from '@/lib/api';
+import { confirmAction, notify } from '@/lib/confirm';
 import { formatCurrency } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -38,7 +39,7 @@ export default function DashboardScreen() {
       ]);
       setTimeout(() => setNotice(null), 3000);
     },
-    onError: (error) => Alert.alert('Couldn’t update loan', error instanceof ApiError ? error.message : 'Please try again.'),
+    onError: (error) => notify('Couldn’t update loan', error instanceof ApiError ? error.message : 'Please try again.'),
   });
 
   const filtered = useMemo(() => {
@@ -47,10 +48,9 @@ export default function DashboardScreen() {
   }, [loansQuery.data, filter]);
 
   const refresh = async () => Promise.all([loansQuery.refetch(), summaryQuery.refetch()]);
-  const confirmRepay = (loan: Loan) => Alert.alert(
-    'Mark as repaid?',
-    `Confirm that ${loan.friendName} returned ${formatCurrency(loan.amount)}. This will update your totals immediately.`,
-    [{ text: 'Cancel', style: 'cancel' }, { text: 'Mark repaid', onPress: () => repay.mutate(loan.id) }],
+  const confirmRepay = (loan: Loan) => confirmAction(
+    { title: 'Mark as repaid?', message: `Confirm that ${loan.friendName} returned ${formatCurrency(loan.amount)}. This will update your totals immediately.`, confirmLabel: 'Mark repaid' },
+    () => repay.mutate(loan.id),
   );
 
   const isInitialLoading = loansQuery.isLoading || summaryQuery.isLoading;
@@ -58,7 +58,7 @@ export default function DashboardScreen() {
   const totalCount = loansQuery.data?.loans.length ?? 0;
 
   const onAdd = () => router.push('/(app)/add-loan');
-  const onSignOut = () => Alert.alert('Sign out?', 'Your private ledger will be removed from this device.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Sign out', style: 'destructive', onPress: () => void signOut() }]);
+  const onSignOut = () => confirmAction({ title: 'Sign out?', message: 'Your private ledger will be removed from this device.', confirmLabel: 'Sign out', destructive: true }, () => void signOut());
 
   const overview = (
     <>

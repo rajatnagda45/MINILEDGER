@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@/components/button';
 import { ErrorState, LoadingState } from '@/components/state-view';
 import { colors, radii, shadow, spacing, type } from '@/constants/theme';
 import { api, ApiError } from '@/lib/api';
+import { confirmAction, notify } from '@/lib/confirm';
 import { formatCurrency, formatDate, initials } from '@/lib/format';
 
 export default function LoanDetailScreen() {
@@ -18,7 +19,7 @@ export default function LoanDetailScreen() {
     onSuccess: async () => {
       await Promise.all([queryClient.invalidateQueries({ queryKey: ['loan', id] }), queryClient.invalidateQueries({ queryKey: ['loans'] }), queryClient.invalidateQueries({ queryKey: ['summary'] })]);
     },
-    onError: (error) => Alert.alert('Couldn’t update loan', error instanceof ApiError ? error.message : 'Please try again.'),
+    onError: (error) => notify('Couldn’t update loan', error instanceof ApiError ? error.message : 'Please try again.'),
   });
   const loan = query.data?.loan;
 
@@ -48,7 +49,7 @@ export default function LoanDetailScreen() {
               {loan.repaidAt && <DetailRow icon="checkmark-circle-outline" label="Repaid on" value={new Date(loan.repaidAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} />}
               {loan.receiptAvailable && <DetailRow icon="receipt-outline" label="Receipt" value="Attached" />}
             </View>
-            {loan.status === 'OUTSTANDING' && <Button label="Mark as repaid" loading={repay.isPending} onPress={() => Alert.alert('Confirm repayment', `Did ${loan.friendName} return ${formatCurrency(loan.amount)}?`, [{ text: 'Cancel', style: 'cancel' }, { text: 'Yes, mark repaid', onPress: () => repay.mutate() }])} />}
+            {loan.status === 'OUTSTANDING' && <Button label="Mark as repaid" loading={repay.isPending} onPress={() => confirmAction({ title: 'Confirm repayment', message: `Did ${loan.friendName} return ${formatCurrency(loan.amount)}?`, confirmLabel: 'Yes, mark repaid' }, () => repay.mutate())} />}
             {loan.status === 'REPAID' && <View style={styles.settled}><Ionicons name="shield-checkmark-outline" size={22} color={colors.success} /><View style={styles.settledBody}><Text style={styles.settledTitle}>This loan is settled</Text><Text style={styles.settledCopy}>It no longer contributes to outstanding or overdue totals.</Text></View></View>}
           </>
         )}

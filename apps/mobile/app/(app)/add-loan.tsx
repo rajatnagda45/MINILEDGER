@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { router, useNavigation } from 'expo-router';
 import { useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { z } from 'zod';
@@ -14,6 +14,7 @@ import { FadeInView } from '@/components/fade-in-view';
 import { FormField } from '@/components/form-field';
 import { colors, radii, shadow, spacing, type } from '@/constants/theme';
 import { api, ApiError } from '@/lib/api';
+import { confirmAction, notify } from '@/lib/confirm';
 import { formatDate, isValidIsoDate, toIsoDate } from '@/lib/format';
 
 const schema = z.object({
@@ -34,7 +35,7 @@ export default function AddLoanScreen() {
     mutationFn: (values: Values) => api.createLoan({ friendName: values.friendName.trim(), amount: Number(values.amount), dueDate: values.dueDate }),
     onSuccess: async (result) => {
       await Promise.all([queryClient.invalidateQueries({ queryKey: ['loans'] }), queryClient.invalidateQueries({ queryKey: ['summary'] })]);
-      Alert.alert('Loan added', `${result.loan.friendName} now appears in your ledger.`, [{ text: 'Done', onPress: () => router.back() }]);
+      notify('Loan added', `${result.loan.friendName} now appears in your ledger.`, () => router.back());
     },
   });
   const dueDate = form.watch('dueDate');
@@ -42,10 +43,10 @@ export default function AddLoanScreen() {
   const error = mutation.error instanceof ApiError ? mutation.error.message : null;
   const submit = form.handleSubmit((values) => mutation.mutate(values));
   usePreventRemove(form.formState.isDirty && !mutation.isSuccess, ({ data }) => {
-    Alert.alert('Discard this loan?', 'Your entered details have not been saved.', [
-      { text: 'Keep editing', style: 'cancel' },
-      { text: 'Discard', style: 'destructive', onPress: () => navigation.dispatch(data.action) },
-    ]);
+    confirmAction(
+      { title: 'Discard this loan?', message: 'Your entered details have not been saved.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', destructive: true },
+      () => navigation.dispatch(data.action),
+    );
   });
 
   return (
@@ -65,7 +66,7 @@ export default function AddLoanScreen() {
               <FormField label="Friend’s name" placeholder="e.g. Aarav Sharma" autoCapitalize="words" autoCorrect={false} returnKeyType="next" blurOnSubmit={false} value={value} onChangeText={onChange} onBlur={onBlur} onSubmitEditing={() => amountRef.current?.focus()} error={fieldState.error?.message} />
             )} />
             <Controller control={form.control} name="amount" render={({ field: { onChange, onBlur, value }, fieldState }) => (
-              <FormField ref={amountRef} label="Amount lent" prefix="₹" placeholder="2,500" keyboardType="decimal-pad" returnKeyType="done" value={value} onChangeText={(text) => onChange(text.replace(/,/g, '').replace(/[^\d.]/g, ''))} onBlur={onBlur} onSubmitEditing={submit} error={fieldState.error?.message} hint="Amounts are stored exactly to the paise." />
+              <FormField ref={amountRef} label="Amount lent" prefix="₹" placeholder="2,500" numeric keyboardType="decimal-pad" returnKeyType="done" value={value} onChangeText={(text) => onChange(text.replace(/,/g, '').replace(/[^\d.]/g, ''))} onBlur={onBlur} onSubmitEditing={submit} error={fieldState.error?.message} hint="Amounts are stored exactly to the paise." />
             )} />
 
             {Platform.OS === 'web' ? (

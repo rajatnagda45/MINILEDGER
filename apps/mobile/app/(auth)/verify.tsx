@@ -5,6 +5,7 @@ import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput,
 import { Ionicons } from '@expo/vector-icons';
 import { BrandMark } from '@/components/brand-mark';
 import { Button } from '@/components/button';
+import { noWebOutline } from '@/components/form-field';
 import { colors, radii, shadow, spacing, type } from '@/constants/theme';
 import { api, ApiError } from '@/lib/api';
 import { maskPhone } from '@/lib/format';
@@ -41,10 +42,10 @@ export default function VerifyScreen() {
           <Text style={styles.subtitle}>Use the six-digit mock OTP shown in the backend terminal for <Text style={styles.phone}>{maskPhone(phone)}</Text>.</Text>
         </View>
 
-        <Pressable style={styles.otpWrap} onPress={() => inputRef.current?.focus()} accessible={false}>
+        <View style={styles.otpWrap}>
           {Array.from({ length: 6 }).map((_, index) => (
             <View key={index} style={[styles.digit, otp.length === index && styles.activeDigit, index < otp.length && styles.filledDigit]}>
-              <Text style={styles.digitText}>{otp[index] ?? ''}</Text>
+              {otp.length === index ? <View style={styles.caret} /> : <Text style={styles.digitText}>{otp[index] ?? ''}</Text>}
             </View>
           ))}
           <TextInput
@@ -52,17 +53,19 @@ export default function VerifyScreen() {
             value={otp}
             onChangeText={(text) => { setOtp(text.replace(/\D/g, '').slice(0, 6)); verify.reset(); }}
             keyboardType="number-pad"
+            inputMode="numeric"
             textContentType="oneTimeCode"
             autoComplete="one-time-code"
             maxLength={6}
             autoFocus
+            caretHidden
             returnKeyType="done"
             onSubmitEditing={() => otp.length === 6 && verify.mutate()}
             accessibilityLabel="Six-digit verification code"
             accessibilityHint="Enter or paste the code shown in the backend terminal"
-            style={styles.hiddenInput}
+            style={[styles.otpInput, noWebOutline]}
           />
-        </Pressable>
+        </View>
 
         {!!error && <View style={styles.error}><Ionicons name="alert-circle-outline" size={18} color={colors.danger} /><Text style={styles.errorText}>{error}</Text></View>}
         <Button label="Verify & open ledger" loading={verify.isPending} disabled={otp.length !== 6} onPress={() => verify.mutate()} />
@@ -92,7 +95,10 @@ const styles = StyleSheet.create({
   activeDigit: { borderColor: colors.primary },
   filledDigit: { backgroundColor: colors.primarySoft, borderColor: '#C9D6FF' },
   digitText: { fontSize: 23, lineHeight: 28, fontWeight: '700', color: colors.ink, fontVariant: ['tabular-nums'] },
-  hiddenInput: { position: 'absolute', width: 1, height: 1, opacity: 0 },
+  caret: { width: 2, height: 26, borderRadius: 1, backgroundColor: colors.primary },
+  // Full-size transparent input over the boxes: reliable focus/typing/paste on
+  // web and native, with the native caret hidden (no stray cursor block).
+  otpInput: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', color: 'transparent', textAlign: 'center' },
   error: { backgroundColor: colors.dangerSoft, borderRadius: radii.sm, padding: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   errorText: { ...type.caption, color: colors.danger, flex: 1 },
   resendRow: { alignItems: 'center', gap: 5 },

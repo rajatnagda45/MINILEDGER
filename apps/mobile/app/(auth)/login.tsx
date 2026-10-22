@@ -41,6 +41,7 @@ export default function LoginScreen() {
             label="Mobile number"
             prefix="+91"
             placeholder="98765 43210"
+            numeric
             keyboardType="phone-pad"
             autoComplete="tel"
             textContentType="telephoneNumber"
