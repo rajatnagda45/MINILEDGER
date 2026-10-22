@@ -1,5 +1,5 @@
 import { PrismaClient, type Loan as PrismaLoan, type Receipt as PrismaReceipt, type User as PrismaUser } from '@prisma/client';
-import type { DataStore, LoanFilters, LoanRecord, ReceiptInput, ReceiptRecord, ReceiptUpsertResult, UserRecord } from './types.js';
+import type { DataStore, LoanFilters, LoanRecord, OrphanedObjectRecord, ReceiptInput, ReceiptRecord, ReceiptUpsertResult, UserRecord } from './types.js';
 
 function mapUser(user: PrismaUser): UserRecord {
   return user;
@@ -99,5 +99,21 @@ export class PrismaDataStore implements DataStore {
     if (!receipt) return null;
     await this.prisma.receipt.delete({ where: { loanId } });
     return mapReceipt(receipt);
+  }
+
+  async recordOrphan(storageKey: string, reason: string): Promise<void> {
+    await this.prisma.orphanedObject.upsert({
+      where: { storageKey },
+      create: { storageKey, reason },
+      update: { reason, createdAt: new Date() },
+    });
+  }
+
+  async listOrphans(): Promise<OrphanedObjectRecord[]> {
+    return this.prisma.orphanedObject.findMany({ orderBy: { createdAt: 'asc' } });
+  }
+
+  async removeOrphanByKey(storageKey: string): Promise<void> {
+    await this.prisma.orphanedObject.deleteMany({ where: { storageKey } });
   }
 }

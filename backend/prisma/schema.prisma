@@ -53,3 +53,16 @@ model Receipt {
   @@map("receipts")
 }
 
+// Storage objects whose deletion failed after their metadata was replaced or
+// rolled back. Because PostgreSQL and the filesystem are not one transaction,
+// these are recorded here so an orphaned file is always observable and can be
+// retried by reconcileOrphans() instead of being silently lost.
+model OrphanedObject {
+  id         String   @id @default(uuid()) @db.Uuid
+  storageKey String   @unique @map("storage_key") @db.VarChar(128)
+  reason     String   @db.VarChar(40)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("orphaned_objects")
+}
+

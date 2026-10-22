@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import type { DataStore, LoanFilters, LoanRecord, ReceiptInput, ReceiptRecord, ReceiptUpsertResult, UserRecord } from '../src/data/types.js';
+import type { DataStore, LoanFilters, LoanRecord, OrphanedObjectRecord, ReceiptInput, ReceiptRecord, ReceiptUpsertResult, UserRecord } from '../src/data/types.js';
 
 export class MemoryStore implements DataStore {
   readonly users: UserRecord[] = [];
   readonly loans: LoanRecord[] = [];
   readonly receipts = new Map<string, ReceiptRecord>();
+  readonly orphans = new Map<string, OrphanedObjectRecord>();
 
   private withReceipt(loan: LoanRecord): LoanRecord {
     return { ...loan, receipt: this.receipts.get(loan.id) ?? null };
@@ -79,5 +80,17 @@ export class MemoryStore implements DataStore {
     const receipt = this.receipts.get(loanId) ?? null;
     if (receipt) this.receipts.delete(loanId);
     return receipt;
+  }
+
+  async recordOrphan(storageKey: string, reason: string): Promise<void> {
+    this.orphans.set(storageKey, { id: this.orphans.get(storageKey)?.id ?? randomUUID(), storageKey, reason, createdAt: new Date() });
+  }
+
+  async listOrphans(): Promise<OrphanedObjectRecord[]> {
+    return [...this.orphans.values()].sort((a, b) => a.createdAt.valueOf() - b.createdAt.valueOf());
+  }
+
+  async removeOrphanByKey(storageKey: string): Promise<void> {
+    this.orphans.delete(storageKey);
   }
 }

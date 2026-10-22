@@ -16,6 +16,13 @@ export interface ReceiptRecord {
   createdAt: Date;
 }
 
+export interface OrphanedObjectRecord {
+  id: string;
+  storageKey: string;
+  reason: string;
+  createdAt: Date;
+}
+
 export interface LoanRecord {
   id: string;
   userId: string;
@@ -58,4 +65,8 @@ export interface DataStore {
   upsertReceipt(loanId: string, input: ReceiptInput): Promise<ReceiptUpsertResult>;
   findReceiptByLoan(loanId: string): Promise<ReceiptRecord | null>;
   deleteReceiptByLoan(loanId: string): Promise<ReceiptRecord | null>;
+  // Orphaned storage objects awaiting retryable cleanup (idempotent by key).
+  recordOrphan(storageKey: string, reason: string): Promise<void>;
+  listOrphans(): Promise<OrphanedObjectRecord[]>;
+  removeOrphanByKey(storageKey: string): Promise<void>;
 }

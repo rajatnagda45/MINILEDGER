@@ -47,11 +47,16 @@ export class ReceiptService {
     try {
       result = await this.store.upsertReceipt(id, { storageKey, mimeType, byteSize: file.buffer.length });
     } catch (error) {
-      await this.storage.delete(storageKey).catch(() => undefined);
+      // Metadata failed: the just-written object is now an orphan. Delete it; if
+      // that also fails, record a tombstone so it is never silently lost.
+      await this.cleanupOrTombstone(storageKey, 'upload-rollback');
       throw error;
     }
+    // Replacement succeeded and points at the new object. Remove the previous
+    // object; a failure here is tombstoned (observable + reconcilable) rather
+    // than swallowed, and never fails the already-committed replacement.
     if (result.previous && result.previous.storageKey !== storageKey) {
-      await this.storage.delete(result.previous.storageKey).catch(() => undefined);
+      await this.cleanupOrTombstone(result.previous.storageKey, 'replace-cleanup');
     }
     return result.record;
   }
@@ -64,10 +69,45 @@ export class ReceiptService {
     return { receipt, bytes };
   }
 
+  /**
+   * Delete the stored object FIRST, then the metadata. If the object deletion
+   * fails we deliberately leave the metadata in place and surface the error, so
+   * the receipt stays fully consistent and the caller can safely retry — the API
+   * never reports success while a private file is still on disk.
+   */
   async remove(userId: string, loanId: string): Promise<void> {
     const id = await this.requireOwnedLoan(userId, loanId);
-    const receipt = await this.store.deleteReceiptByLoan(id);
+    const receipt = await this.store.findReceiptByLoan(id);
     if (!receipt) throw new AppError(404, 'RECEIPT_NOT_FOUND', 'No receipt is attached to this loan.');
-    await this.storage.delete(receipt.storageKey).catch(() => undefined);
+    await this.storage.delete(receipt.storageKey); // throws on a real failure -> metadata preserved -> retryable
+    await this.store.deleteReceiptByLoan(id);
+    await this.store.removeOrphanByKey(receipt.storageKey).catch(() => undefined);
+  }
+
+  /** Retry deleting any tombstoned orphan objects. Safe to run repeatedly. */
+  async reconcileOrphans(): Promise<{ attempted: number; deleted: number; remaining: number }> {
+    const orphans = await this.store.listOrphans();
+    let deleted = 0;
+    for (const orphan of orphans) {
+      try {
+        await this.storage.delete(orphan.storageKey);
+        await this.store.removeOrphanByKey(orphan.storageKey);
+        deleted += 1;
+      } catch {
+        // Leave it tombstoned for the next reconciliation pass.
+      }
+    }
+    return { attempted: orphans.length, deleted, remaining: orphans.length - deleted };
+  }
+
+  private async cleanupOrTombstone(storageKey: string, reason: string): Promise<void> {
+    try {
+      await this.storage.delete(storageKey);
+      await this.store.removeOrphanByKey(storageKey).catch(() => undefined);
+    } catch {
+      await this.store.recordOrphan(storageKey, reason).catch(() => undefined);
+      // Observable without leaking contents: only the opaque key and reason.
+      console.error(`[receipt] cleanup failed, tombstoned for reconciliation: ${storageKey} (${reason})`);
+    }
   }
 }
