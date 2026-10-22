@@ -115,6 +115,8 @@ npm run db:generate
 
 Replace `JWT_SECRET` and `OTP_PEPPER` in `.env` with different long random values. The committed example contains placeholders only.
 
+There is a single environment file at the repository root. The API loads it at runtime, and the Prisma CLI loads it through `backend/prisma.config.ts`, so `db:generate`, `db:migrate`, `db:deploy`, and `db:seed` all resolve `DATABASE_URL` from the same place — no separate `backend/.env` is needed.
+
 ### Start PostgreSQL with Docker
 
 ```bash

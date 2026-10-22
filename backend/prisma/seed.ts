@@ -1,4 +1,10 @@
+import { resolve } from 'node:path';
+import { config as loadDotenv } from 'dotenv';
 import { PrismaClient } from '@prisma/client';
+
+// Load the repository-root .env (same single source as the API and prisma.config.ts)
+// so `npm run db:seed` resolves DATABASE_URL when run from the backend workspace.
+loadDotenv({ path: resolve(process.cwd(), '../.env') });
 
 const prisma = new PrismaClient();
 const phoneNumber = '+919999999999';
