@@ -17,10 +17,9 @@
     "@hookform/resolvers": "^5.2.2",
     "@miniledger/shared": "*",
     "@react-native-community/datetimepicker": "8.4.4",
+    "@react-navigation/native": "^7.5.1",
     "@tanstack/react-query": "^5.90.5",
     "expo": "~54.0.20",
-    "expo-constants": "~18.0.10",
-    "expo-haptics": "~15.0.7",
     "expo-router": "~6.0.13",
     "expo-secure-store": "~15.0.7",
     "expo-status-bar": "~3.0.8",
@@ -35,7 +34,8 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.10",
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~10.0.0",
     "typescript": "^5.9.3"
   }
 }
-

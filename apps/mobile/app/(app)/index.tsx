@@ -87,14 +87,14 @@ export default function DashboardScreen() {
               <Text style={styles.subheading}>A clear view of every rupee you’re owed.</Text>
             </View>
 
-            {summaryQuery.data && <SummaryPanel summary={summaryQuery.data} />}
-            {!!notice && <View style={styles.notice}><Ionicons name="checkmark-circle" size={19} color={colors.success} /><Text style={styles.noticeText}>{notice}</Text></View>}
+            {summaryQuery.data ? <SummaryPanel summary={summaryQuery.data} /> : summaryQuery.isLoading ? <SummarySkeleton /> : null}
+            {!!notice && <View style={styles.notice} accessibilityRole="alert" accessibilityLiveRegion="polite"><Ionicons name="checkmark-circle" size={19} color={colors.success} /><Text style={styles.noticeText}>{notice}</Text></View>}
 
             <View style={styles.sectionRow}>
               <View><Text style={styles.sectionTitle}>Loans</Text><Text style={styles.sectionMeta}>{loansQuery.data?.loans.length ?? 0} total entries</Text></View>
               <View style={styles.filters}>
                 {(['ALL', 'OUTSTANDING', 'REPAID'] as const).map((value) => (
-                  <Pressable key={value} onPress={() => setFilter(value)} style={[styles.filter, filter === value && styles.filterActive]}>
+                  <Pressable key={value} accessibilityRole="button" accessibilityLabel={`Show ${value === 'OUTSTANDING' ? 'active' : value.toLowerCase()} loans`} accessibilityState={{ selected: filter === value }} onPress={() => setFilter(value)} style={[styles.filter, filter === value && styles.filterActive]}>
                     <Text style={[styles.filterText, filter === value && styles.filterTextActive]}>{value === 'OUTSTANDING' ? 'Active' : value === 'ALL' ? 'All' : 'Repaid'}</Text>
                   </Pressable>
                 ))}
@@ -117,24 +117,37 @@ function SummaryPanel({ summary }: { summary: import('@miniledger/shared').Summa
     <View style={styles.summaryCard}>
       <View style={styles.orbOne} /><View style={styles.orbTwo} />
       <View style={styles.summaryTop}>
-        <View><Text style={styles.summaryLabel}>STILL TO RECEIVE</Text><Text style={styles.summaryAmount}>{formatCurrency(summary.outstandingAmount)}</Text></View>
+        <View style={styles.summaryPrimary}><Text style={styles.summaryLabel}>STILL TO RECEIVE</Text><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.68} style={styles.summaryAmount}>{formatCurrency(summary.outstandingAmount)}</Text></View>
         <View style={styles.wallet}><Ionicons name="wallet-outline" size={23} color={colors.white} /></View>
       </View>
       <View style={styles.summaryDivider} />
       <View style={styles.summaryStats}>
-        <SummaryStat label="Total lent" value={formatCurrency(summary.totalLent, true)} />
+        <SummaryStat label="Total lent" value={formatCurrency(summary.totalLent)} />
         <View style={styles.statDivider} />
-        <SummaryStat label="Repaid" value={formatCurrency(summary.totalRepaid, true)} tone="success" />
+        <SummaryStat label="Repaid" value={formatCurrency(summary.totalRepaid)} tone="success" />
         <View style={styles.statDivider} />
-        <SummaryStat label="Overdue" value={formatCurrency(summary.overdueAmount, true)} tone={summary.overdueAmount > 0 ? 'danger' : undefined} />
+        <SummaryStat label="Overdue" value={formatCurrency(summary.overdueAmount)} tone={summary.overdueAmount > 0 ? 'danger' : undefined} />
       </View>
       {summary.overdueLoanCount > 0 && <View style={styles.overdueCallout}><View style={styles.alertDot} /><Text style={styles.overdueCalloutText}>{summary.overdueLoanCount} {summary.overdueLoanCount === 1 ? 'loan needs' : 'loans need'} your attention</Text><Ionicons name="arrow-forward" size={15} color="#FFB5BD" /></View>}
     </View>
   );
 }
 
+function SummarySkeleton() {
+  return (
+    <View style={styles.summarySkeleton} accessibilityLabel="Loading financial summary">
+      <View style={styles.skeletonLabel} />
+      <View style={styles.skeletonAmount} />
+      <View style={styles.skeletonDivider} />
+      <View style={styles.skeletonStats}>
+        <View style={styles.skeletonStat} /><View style={styles.skeletonStat} /><View style={styles.skeletonStat} />
+      </View>
+    </View>
+  );
+}
+
 function SummaryStat({ label, value, tone }: { label: string; value: string; tone?: 'success' | 'danger' | undefined }) {
-  return <View style={styles.summaryStat}><Text style={styles.statLabel}>{label}</Text><Text style={[styles.statValue, tone === 'success' && styles.statSuccess, tone === 'danger' && styles.statDanger]}>{value}</Text></View>;
+  return <View style={styles.summaryStat}><Text style={styles.statLabel}>{label}</Text><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.62} style={[styles.statValue, tone === 'success' && styles.statSuccess, tone === 'danger' && styles.statDanger]}>{value}</Text></View>;
 }
 
 function EmptyState({ filtered, onAdd }: { filtered: boolean; onAdd: () => void }) {
@@ -150,7 +163,7 @@ function EmptyState({ filtered, onAdd }: { filtered: boolean; onAdd: () => void 
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas },
-  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
+  content: { width: '100%', maxWidth: 680, alignSelf: 'center', paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
   headerWrap: { gap: spacing.xl, marginBottom: spacing.md },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   topActions: { flexDirection: 'row', gap: spacing.xs },
@@ -162,9 +175,16 @@ const styles = StyleSheet.create({
   title: { ...type.h1, color: colors.ink },
   subheading: { ...type.body, color: colors.muted },
   summaryCard: { backgroundColor: colors.navy, borderRadius: radii.xl, padding: spacing.xl, overflow: 'hidden', ...shadow },
+  summarySkeleton: { height: 190, backgroundColor: '#E8ECF3', borderRadius: radii.xl, padding: spacing.xl, gap: spacing.sm, overflow: 'hidden' },
+  skeletonLabel: { width: 104, height: 10, borderRadius: 5, backgroundColor: '#D2D8E3' },
+  skeletonAmount: { width: '58%', height: 36, borderRadius: 10, backgroundColor: '#D9DEE8' },
+  skeletonDivider: { height: 1, backgroundColor: '#D2D8E3', marginVertical: spacing.sm },
+  skeletonStats: { flexDirection: 'row', gap: spacing.sm },
+  skeletonStat: { flex: 1, height: 42, borderRadius: radii.sm, backgroundColor: '#D9DEE8' },
   orbOne: { position: 'absolute', width: 170, height: 170, borderRadius: 85, right: -60, top: -85, backgroundColor: 'rgba(72, 116, 255, 0.22)' },
   orbTwo: { position: 'absolute', width: 100, height: 100, borderRadius: 50, left: -45, bottom: -60, backgroundColor: 'rgba(72, 116, 255, 0.12)' },
   summaryTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  summaryPrimary: { flex: 1, paddingRight: spacing.sm },
   summaryLabel: { ...type.micro, color: '#AEBBD4', marginBottom: 8 },
   summaryAmount: { fontSize: 34, lineHeight: 40, fontWeight: '800', letterSpacing: -1, color: colors.white, fontVariant: ['tabular-nums'] },
   wallet: { width: 44, height: 44, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },

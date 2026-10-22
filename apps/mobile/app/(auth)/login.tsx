@@ -9,6 +9,7 @@ import { Button } from '@/components/button';
 import { FormField } from '@/components/form-field';
 import { colors, radii, shadow, spacing, type } from '@/constants/theme';
 import { api, ApiError } from '@/lib/api';
+import { formatPhoneInput } from '@/lib/format';
 
 const schema = z.object({ phone: z.string().trim().regex(/^[6-9]\d{9}$/, 'Enter a valid 10-digit Indian mobile number.') });
 type Values = z.infer<typeof schema>;
@@ -48,9 +49,9 @@ export default function LoginScreen() {
                 keyboardType="phone-pad"
                 autoComplete="tel"
                 textContentType="telephoneNumber"
-                maxLength={10}
-                value={value}
-                onChangeText={(text) => onChange(text.replace(/\D/g, ''))}
+                maxLength={11}
+                value={formatPhoneInput(value)}
+                onChangeText={(text) => onChange(text.replace(/\D/g, '').slice(0, 10))}
                 onBlur={onBlur}
                 error={fieldState.error?.message}
               />
@@ -70,7 +71,7 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.canvas },
-  content: { flexGrow: 1, paddingHorizontal: spacing.xl, paddingTop: 72, paddingBottom: spacing.xxl, gap: spacing.xxl, overflow: 'hidden' },
+  content: { flexGrow: 1, width: '100%', maxWidth: 520, alignSelf: 'center', paddingHorizontal: spacing.xl, paddingTop: 72, paddingBottom: spacing.xxl, gap: spacing.xxl, overflow: 'hidden' },
   glow: { position: 'absolute', width: 280, height: 280, borderRadius: 140, backgroundColor: '#E5ECFF', top: -130, right: -120 },
   hero: { gap: spacing.md },
   eyebrow: { alignSelf: 'flex-start', backgroundColor: colors.primarySoft, borderRadius: radii.pill, paddingHorizontal: 11, paddingVertical: 6 },

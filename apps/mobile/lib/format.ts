@@ -1,10 +1,20 @@
-export function formatCurrency(value: number, compact = false): string {
+export function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
     maximumFractionDigits: value % 1 === 0 ? 0 : 2,
-    ...(compact ? { notation: 'compact', compactDisplay: 'short' } : {}),
   }).format(value);
+}
+
+export function formatPhoneInput(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 10);
+  return digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits;
+}
+
+export function isValidIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === value;
 }
 
 export function formatDate(isoDate: string): string {

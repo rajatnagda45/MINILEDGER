@@ -1,7 +1,8 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { usePreventRemove } from '@react-navigation/native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,12 +12,12 @@ import { Button } from '@/components/button';
 import { FormField } from '@/components/form-field';
 import { colors, radii, shadow, spacing, type } from '@/constants/theme';
 import { api, ApiError } from '@/lib/api';
-import { formatDate, toIsoDate } from '@/lib/format';
+import { formatDate, isValidIsoDate, toIsoDate } from '@/lib/format';
 
 const schema = z.object({
   friendName: z.string().trim().min(2, 'Enter your friend’s name.').max(80, 'Keep the name under 80 characters.'),
   amount: z.string().trim().regex(/^\d+(\.\d{1,2})?$/, 'Enter a valid amount with up to two decimals.').refine((value) => Number(value) > 0, 'Amount must be greater than zero.').refine((value) => Number(value) <= 10_000_000, 'Amount is above the ₹1 crore limit.'),
-  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose a due date.'),
+  dueDate: z.string().refine(isValidIsoDate, 'Choose a valid due date.'),
 });
 type Values = z.infer<typeof schema>;
 
@@ -24,6 +25,7 @@ function initialDueDate() { const date = new Date(); date.setDate(date.getDate()
 
 export default function AddLoanScreen() {
   const queryClient = useQueryClient();
+  const navigation = useNavigation();
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { friendName: '', amount: '', dueDate: toIsoDate(initialDueDate()) } });
   const mutation = useMutation({
     mutationFn: (values: Values) => api.createLoan({ friendName: values.friendName.trim(), amount: Number(values.amount), dueDate: values.dueDate }),
@@ -35,6 +37,12 @@ export default function AddLoanScreen() {
   const dueDate = form.watch('dueDate');
   const selectedDate = new Date(`${dueDate}T12:00:00`);
   const error = mutation.error instanceof ApiError ? mutation.error.message : null;
+  usePreventRemove(form.formState.isDirty && !mutation.isSuccess, ({ data }) => {
+    Alert.alert('Discard this loan?', 'Your entered details have not been saved.', [
+      { text: 'Keep editing', style: 'cancel' },
+      { text: 'Discard', style: 'destructive', onPress: () => navigation.dispatch(data.action) },
+    ]);
+  });
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -71,7 +79,7 @@ export default function AddLoanScreen() {
           </View>
 
           <View style={styles.note}><Ionicons name="information-circle-outline" size={20} color={colors.primary} /><Text style={styles.noteText}>Past due dates are allowed and will be clearly marked overdue as soon as the loan is added.</Text></View>
-          {!!error && <View style={styles.error}><Text style={styles.errorText}>{error}</Text></View>}
+          {!!error && <View style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite"><Text style={styles.errorText}>{error}</Text></View>}
           <Button label="Add to my ledger" loading={mutation.isPending} onPress={form.handleSubmit((values) => mutation.mutate(values))} />
           <Text style={styles.footer}>Your financial totals come from the server and update after this loan is saved.</Text>
         </ScrollView>
@@ -82,7 +90,7 @@ export default function AddLoanScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas }, flex: { flex: 1 },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.xl },
+  content: { width: '100%', maxWidth: 620, alignSelf: 'center', padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.xl },
   nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   iconButton: { width: 44, height: 44, borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
   navTitle: { alignItems: 'center' }, navEyebrow: { ...type.micro, color: colors.primary }, navHeading: { ...type.h3, color: colors.ink }, navSpacer: { width: 44 },

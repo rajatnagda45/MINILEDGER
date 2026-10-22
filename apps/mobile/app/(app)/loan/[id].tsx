@@ -36,7 +36,7 @@ export default function LoanDetailScreen() {
             <View style={[styles.hero, loan.isOverdue && styles.heroOverdue]}>
               <View style={[styles.avatar, loan.isOverdue && styles.avatarOverdue, loan.status === 'REPAID' && styles.avatarRepaid]}><Text style={styles.avatarText}>{initials(loan.friendName)}</Text></View>
               <Text style={styles.name}>{loan.friendName}</Text>
-              <Text style={styles.amount}>{formatCurrency(loan.amount)}</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={styles.amount}>{formatCurrency(loan.amount)}</Text>
               <View style={[styles.status, loan.isOverdue ? styles.statusOverdue : loan.status === 'REPAID' ? styles.statusRepaid : styles.statusActive]}>
                 <Ionicons name={loan.isOverdue ? 'alert-circle' : loan.status === 'REPAID' ? 'checkmark-circle' : 'time'} size={15} color={loan.isOverdue ? colors.danger : loan.status === 'REPAID' ? colors.success : colors.primary} />
                 <Text style={[styles.statusText, loan.isOverdue ? styles.textOverdue : loan.status === 'REPAID' ? styles.textRepaid : styles.textActive]}>{loan.isOverdue ? 'Payment overdue' : loan.status === 'REPAID' ? 'Fully repaid' : 'Payment outstanding'}</Text>
@@ -62,7 +62,7 @@ function DetailRow({ icon, label, value, warning = false }: { icon: keyof typeof
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.canvas }, content: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.xl },
+  safe: { flex: 1, backgroundColor: colors.canvas }, content: { width: '100%', maxWidth: 620, alignSelf: 'center', padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.xl },
   nav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, back: { width: 44, height: 44, borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' }, navTitle: { ...type.h3, color: colors.ink }, navSpacer: { width: 44 },
   hero: { backgroundColor: colors.surface, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.line, padding: spacing.xl, alignItems: 'center', gap: spacing.sm, ...shadow }, heroOverdue: { borderColor: '#F5C7CC', backgroundColor: '#FFFCFC' },
   avatar: { width: 68, height: 68, borderRadius: 25, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.xs }, avatarOverdue: { backgroundColor: colors.dangerSoft }, avatarRepaid: { backgroundColor: colors.successSoft }, avatarText: { fontSize: 18, fontWeight: '800', color: colors.ink },

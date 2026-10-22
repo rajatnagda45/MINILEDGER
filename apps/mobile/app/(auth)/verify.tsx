@@ -41,7 +41,7 @@ export default function VerifyScreen() {
           <Text style={styles.subtitle}>Use the six-digit mock OTP shown in the backend terminal for <Text style={styles.phone}>{maskPhone(phone)}</Text>.</Text>
         </View>
 
-        <Pressable style={styles.otpWrap} onPress={() => inputRef.current?.focus()} accessibilityLabel="Six-digit verification code">
+        <Pressable style={styles.otpWrap} onPress={() => inputRef.current?.focus()} accessible={false}>
           {Array.from({ length: 6 }).map((_, index) => (
             <View key={index} style={[styles.digit, otp.length === index && styles.activeDigit, index < otp.length && styles.filledDigit]}>
               <Text style={styles.digitText}>{otp[index] ?? ''}</Text>
@@ -56,6 +56,8 @@ export default function VerifyScreen() {
             autoComplete="one-time-code"
             maxLength={6}
             autoFocus
+            accessibilityLabel="Six-digit verification code"
+            accessibilityHint="Enter or paste the code shown in the backend terminal"
             style={styles.hiddenInput}
           />
         </Pressable>
@@ -65,7 +67,7 @@ export default function VerifyScreen() {
 
         <View style={styles.resendRow}>
           <Text style={styles.resendCopy}>{seconds > 0 ? `You can request another code in 0:${String(seconds).padStart(2, '0')}` : 'Didn’t get the code?'}</Text>
-          {seconds === 0 && <Pressable accessibilityRole="button" disabled={resend.isPending} onPress={() => resend.mutate()}><Text style={styles.resendLink}>{resend.isPending ? 'Sending…' : 'Resend code'}</Text></Pressable>}
+          {seconds === 0 && <Pressable accessibilityRole="button" accessibilityState={{ disabled: resend.isPending, busy: resend.isPending }} disabled={resend.isPending} onPress={() => resend.mutate()}><Text style={styles.resendLink}>{resend.isPending ? 'Sending…' : 'Resend code'}</Text></Pressable>}
         </View>
         <Pressable accessibilityRole="button" onPress={() => router.replace('/(auth)/login')} style={styles.edit}><Ionicons name="pencil-outline" size={15} color={colors.primary} /><Text style={styles.editText}>Use a different number</Text></Pressable>
       </View>
@@ -75,7 +77,7 @@ export default function VerifyScreen() {
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.canvas },
-  content: { flex: 1, paddingHorizontal: spacing.xl, paddingTop: 62, gap: spacing.xl },
+  content: { flex: 1, width: '100%', maxWidth: 520, alignSelf: 'center', paddingHorizontal: spacing.xl, paddingTop: 62, gap: spacing.xl },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   back: { width: 44, height: 44, borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
   hero: { alignItems: 'center', gap: spacing.sm, marginTop: spacing.xl },
