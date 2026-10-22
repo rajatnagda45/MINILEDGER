@@ -16,7 +16,7 @@ All responses are JSON. Protected routes require a JWT in `Authorization: Bearer
 }
 ```
 
-Expected codes include `VALIDATION_ERROR`, `MALFORMED_JSON`, `UNAUTHENTICATED`, `SESSION_EXPIRED`, `OTP_INVALID`, `OTP_EXPIRED`, `OTP_COOLDOWN`, `OTP_RATE_LIMIT`, `LOAN_NOT_FOUND`, and `LOAN_ALREADY_REPAID`. Malformed JSON returns a safe `400`; invalid loan UUIDs return `422` before reaching Prisma.
+Expected codes include `VALIDATION_ERROR`, `MALFORMED_JSON`, `UNAUTHENTICATED`, `SESSION_EXPIRED`, `OTP_INVALID`, `OTP_EXPIRED`, `OTP_COOLDOWN`, `OTP_RATE_LIMIT`, `LOAN_NOT_FOUND`, `LOAN_ALREADY_REPAID`, and `RECEIPT_CHANGED`. Malformed JSON returns a safe `400`; invalid loan UUIDs return `422` before reaching Prisma.
 
 ## Health
 
@@ -137,9 +137,9 @@ One optional receipt image per loan. All three endpoints require a valid JWT and
 
 ### POST `/api/loans/:id/receipt`
 
-`multipart/form-data` with a single `receipt` file (JPEG or PNG, up to `RECEIPT_MAX_BYTES`, default 5 MB). The server validates the image's magic bytes — the declared MIME type and filename are not trusted — generates the stored filename itself, and persists only metadata. Replaces any existing receipt. Returns `201` with the updated loan (`receiptAvailable: true` and a `receipt` object).
+`multipart/form-data` with a single `receipt` file (JPEG or PNG, up to `RECEIPT_MAX_BYTES`, default 5 MB). The server performs bounded structural and dimension inspection — the declared MIME type and filename are not trusted — generates the stored filename itself, and persists only metadata. Replaces any existing receipt. Returns `201` with the updated loan (`receiptAvailable: true` and a `receipt` object).
 
-Errors: `401` unauthenticated, `404` `LOAN_NOT_FOUND`, `413` `RECEIPT_TOO_LARGE`, `415` `RECEIPT_INVALID_TYPE`, `422` `RECEIPT_REQUIRED` (missing/empty file) or `VALIDATION_ERROR` (bad loan id).
+Errors: `401` unauthenticated, `404` `LOAN_NOT_FOUND`, `413` `RECEIPT_TOO_LARGE`, `415` `RECEIPT_INVALID_TYPE`, `422` `RECEIPT_REQUIRED` (missing/empty file), `RECEIPT_INVALID_IMAGE` (malformed/dimension violation), or `VALIDATION_ERROR` (bad loan id).
 
 ### GET `/api/loans/:id/receipt`
 
@@ -147,4 +147,4 @@ Streams the raw image with its stored `Content-Type`, `X-Content-Type-Options: n
 
 ### DELETE `/api/loans/:id/receipt`
 
-Removes the metadata and deletes the stored object. Returns `204` on success, `404` `RECEIPT_NOT_FOUND` when none exists. Removing a receipt never changes financial totals.
+Deletes the stored object and conditionally removes the matching metadata. Returns `204` on success, `404` `RECEIPT_NOT_FOUND` when none exists, or `409` `RECEIPT_CHANGED` when a concurrent replacement wins. Removing a receipt never changes financial totals.

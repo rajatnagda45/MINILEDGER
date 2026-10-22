@@ -76,10 +76,11 @@ export class MemoryStore implements DataStore {
     return this.receipts.get(loanId) ?? null;
   }
 
-  async deleteReceiptByLoan(loanId: string): Promise<ReceiptRecord | null> {
+  async deleteReceiptByLoanIfMatches(loanId: string, storageKey: string): Promise<boolean> {
     const receipt = this.receipts.get(loanId) ?? null;
-    if (receipt) this.receipts.delete(loanId);
-    return receipt;
+    if (!receipt || receipt.storageKey !== storageKey) return false;
+    this.receipts.delete(loanId);
+    return true;
   }
 
   async recordOrphan(storageKey: string, reason: string): Promise<void> {

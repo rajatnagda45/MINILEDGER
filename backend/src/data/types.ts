@@ -64,7 +64,9 @@ export interface DataStore {
   // Receipts. Ownership is enforced by the caller via findLoan before these run.
   upsertReceipt(loanId: string, input: ReceiptInput): Promise<ReceiptUpsertResult>;
   findReceiptByLoan(loanId: string): Promise<ReceiptRecord | null>;
-  deleteReceiptByLoan(loanId: string): Promise<ReceiptRecord | null>;
+  /** Delete only the receipt version the caller previously read. Returns false
+   *  when another request replaced or removed it in the meantime. */
+  deleteReceiptByLoanIfMatches(loanId: string, storageKey: string): Promise<boolean>;
   // Orphaned storage objects awaiting retryable cleanup (idempotent by key).
   recordOrphan(storageKey: string, reason: string): Promise<void>;
   listOrphans(): Promise<OrphanedObjectRecord[]>;

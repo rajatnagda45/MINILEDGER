@@ -47,7 +47,7 @@ React Hook Form and Zod provide immediate input guidance while the API repeats a
 
 ## UI system
 
-Reusable tokens control colour, typography, spacing, radii, and elevation. A deep navy financial card establishes hierarchy; white neutral surfaces keep dense information calm. Every displayed amount uses exact Indian currency grouping without compact rounding. Overdue loans combine a red rail, icon, explicit “OVERDUE” badge, and date copy so meaning never depends on colour alone. Card navigation and repayment are separate sibling targets rather than nested controls. Native touch targets are at least roughly 44 points and controls expose roles, labels, selected/busy states, and live announcements where relevant.
+Reusable tokens control colour, typography, spacing, radii, and elevation. The Midnight Ledger system uses a graphite canvas, layered slate surfaces, an electric-blue action colour, mint success, and coral overdue states. Every displayed amount uses exact Indian currency grouping without compact rounding. Overdue loans combine a coral rail, icon, explicit “OVERDUE” badge, and date copy so meaning never depends on colour alone. Card navigation and repayment are separate sibling targets rather than nested controls. Native touch targets are at least roughly 44 points and controls expose roles, labels, selected/busy states, and live announcements where relevant.
 
 ## Receipts
 
@@ -58,7 +58,7 @@ Each loan can carry one optional receipt photo, implemented end to end.
 - **Validation.** The declared MIME type and filename are untrusted. `inspectImage` performs a bounded structural check (PNG `IHDR`/`IEND`, JPEG `SOI`/`SOF`/`EOI`), rejects truncated/malformed files, and bounds real pixel dimensions; multer enforces a 5 MB limit. Only JPEG and PNG are accepted.
 - **Storage split.** Bytes live on a private local filesystem (`RECEIPT_STORAGE_DIR`, `0700` dir / `0600` files, exclusive-create, server-generated random keys, outside any served path). PostgreSQL stores only metadata (`receipts`: storage key, verified media type, byte size, timestamp) one-to-one with the loan.
 - **Retrieval.** `GET /loans/:id/receipt` streams the bytes from an authenticated endpoint with `X-Content-Type-Options: nosniff` and `Cache-Control: private, no-store`; images are never base64-embedded in JSON. The mobile client loads them with request headers on native and a token-authenticated object URL on web (an expired session follows the normal sign-out flow).
-- **Replacement and deletion consistency.** The filesystem and database are not one transaction, so operations are ordered: a replacement writes the new object, persists metadata, then removes the old object; a deletion removes the file *before* its metadata so a failed file delete leaves the receipt intact and retryable. Cleanup failures (replace/rollback) are recorded in an `orphaned_objects` tombstone table and retried by `reconcileOrphans()` (run best-effort at startup) — an orphaned file is never silently lost. Concurrent delete/replace is safe because ownership is re-checked and the unique `loan_id` serializes metadata.
+- **Replacement and deletion consistency.** The filesystem and database are not one transaction, so operations are ordered: a replacement writes the new object, persists metadata, then removes the old object; a deletion removes the file *before* its metadata so a failed file delete leaves the receipt intact and retryable. Cleanup failures (replace/rollback) are recorded in an `orphaned_objects` tombstone table and retried by `reconcileOrphans()` (run best-effort at startup). Metadata removal is conditional on the storage key originally read: if a concurrent replacement wins, its newer metadata is preserved and the delete returns `409 RECEIPT_CHANGED` instead of removing the replacement.
 
 ## Error handling
 
@@ -70,5 +70,5 @@ Expected business errors use `AppError` with HTTP status, stable code, and user-
 - OTP storage is process-local and not suitable for horizontal scaling.
 - Lists are unpaginated because the assignment targets small personal ledgers.
 - Receipt bytes use the local filesystem; a private-bucket Amazon S3 backend is a documented extension of the `ReceiptStorage` interface, not built. Only JPEG/PNG are accepted (iOS HEIC captures are rejected). Validation is a bounded structural check, not a full decode.
-- Automated API tests use an in-memory store to remain isolated and deterministic. A gated real-PostgreSQL integration test verifies concurrent repayment, and migration/persistence are verified separately.
+- Mobile component/integration tests use Jest and React Native Testing Library with API and platform services mocked at their boundaries. Automated API tests use an in-memory store to remain isolated and deterministic. A gated real-PostgreSQL integration test verifies concurrent repayment, and migration/persistence are verified separately.
 

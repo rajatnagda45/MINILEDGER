@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Express } from 'express';
 import request from 'supertest';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/app.js';
 import type { Env } from '../src/config/env.js';
 import type { ReceiptInput } from '../src/data/types.js';
@@ -30,6 +30,16 @@ class FakeStorage implements ReceiptStorage {
   readonly deleted: string[] = [];
   failSave = false;
   failDelete = false;
+  private deletePause: { started: () => void; gate: Promise<void> } | null = null;
+
+  pauseNextDelete(): { started: Promise<void>; resume: () => void } {
+    let markStarted!: () => void;
+    let resume!: () => void;
+    const started = new Promise<void>((resolve) => { markStarted = resolve; });
+    const gate = new Promise<void>((resolve) => { resume = resolve; });
+    this.deletePause = { started: markStarted, gate };
+    return { started, resume };
+  }
 
   async save(bytes: Buffer, mimeType: 'image/jpeg' | 'image/png'): Promise<string> {
     if (this.failSave) throw new Error('simulated storage failure');
@@ -44,6 +54,12 @@ class FakeStorage implements ReceiptStorage {
     return bytes;
   }
   async delete(storageKey: string): Promise<void> {
+    const pause = this.deletePause;
+    if (pause) {
+      this.deletePause = null;
+      pause.started();
+      await pause.gate;
+    }
     if (this.failDelete) throw new Error('simulated delete failure');
     this.objects.delete(storageKey);
     this.deleted.push(storageKey);
@@ -54,13 +70,18 @@ class FakeStorage implements ReceiptStorage {
 class FailingStore extends MemoryStore {
   failUpsert = false;
   failDeleteReceipt = false;
+  failRecordOrphan = false;
   override async upsertReceipt(loanId: string, input: ReceiptInput) {
     if (this.failUpsert) throw new Error('simulated database failure');
     return super.upsertReceipt(loanId, input);
   }
-  override async deleteReceiptByLoan(loanId: string) {
+  override async deleteReceiptByLoanIfMatches(loanId: string, storageKey: string) {
     if (this.failDeleteReceipt) throw new Error('simulated database failure');
-    return super.deleteReceiptByLoan(loanId);
+    return super.deleteReceiptByLoanIfMatches(loanId, storageKey);
+  }
+  override async recordOrphan(storageKey: string, reason: string) {
+    if (this.failRecordOrphan) throw new Error('simulated tombstone persistence failure');
+    return super.recordOrphan(storageKey, reason);
   }
 }
 
@@ -296,6 +317,29 @@ describe('receipts', () => {
     expect((await request(app).get(`/api/loans/${loan.id}`).set('Authorization', `Bearer ${token}`).expect(200)).body.loan.receiptAvailable).toBe(false);
   });
 
+  it('preserves a concurrently replaced receipt instead of deleting its newer metadata', async () => {
+    const token = await signIn();
+    const loan = await createLoan(token);
+    await upload(token, loan.id, PNG).expect(201);
+    const oldKey = storage.saved[0]!;
+    const pause = storage.pauseNextDelete();
+
+    const deleting = request(app).delete(`/api/loans/${loan.id}/receipt`)
+      .set('Authorization', `Bearer ${token}`).then((response) => response);
+    await pause.started;
+
+    await upload(token, loan.id, JPEG, 'replacement.jpg', 'image/jpeg').expect(201);
+    const replacementKey = storage.saved[1]!;
+    pause.resume();
+
+    const deleteResponse = await deleting;
+    expect(deleteResponse.status).toBe(409);
+    expect(deleteResponse.body.error.code).toBe('RECEIPT_CHANGED');
+    expect((await store.findReceiptByLoan(loan.id))?.storageKey).toBe(replacementKey);
+    expect(storage.objects.has(replacementKey)).toBe(true);
+    expect(storage.objects.has(oldKey)).toBe(false);
+  });
+
   it('tombstones the previous object when replacement cleanup fails, then reconciles it', async () => {
     const token = await signIn();
     const loan = await createLoan(token);
@@ -326,6 +370,22 @@ describe('receipts', () => {
     storage.failDelete = false;
     const result = await new ReceiptService(store, storage).reconcileOrphans();
     expect(result.deleted).toBe(1);
+  });
+
+  it('does not claim an orphan was tombstoned when recovery metadata also fails', async () => {
+    const token = await signIn();
+    const loan = await createLoan(token);
+    store.failUpsert = true;
+    store.failRecordOrphan = true;
+    storage.failDelete = true;
+    const logger = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await upload(token, loan.id, PNG).expect(500);
+
+    expect(await store.listOrphans()).toHaveLength(0);
+    expect(logger).toHaveBeenCalledWith(expect.stringContaining('tombstone persistence failed'));
+    expect(logger).not.toHaveBeenCalledWith(expect.stringContaining('tombstoned for reconciliation'));
+    logger.mockRestore();
   });
 
   it('does not change financial totals when a receipt is added or removed', async () => {

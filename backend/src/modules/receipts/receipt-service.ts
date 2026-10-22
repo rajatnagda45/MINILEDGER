@@ -87,7 +87,17 @@ export class ReceiptService {
     const receipt = await this.store.findReceiptByLoan(id);
     if (!receipt) throw new AppError(404, 'RECEIPT_NOT_FOUND', 'No receipt is attached to this loan.');
     await this.storage.delete(receipt.storageKey); // throws on a real failure -> metadata preserved -> retryable
-    await this.store.deleteReceiptByLoan(id);
+    const removed = await this.store.deleteReceiptByLoanIfMatches(id, receipt.storageKey);
+    if (!removed) {
+      const current = await this.store.findReceiptByLoan(id);
+      if (current) {
+        // A concurrent replacement won after this request read the old receipt.
+        // Never delete that newer metadata; ask the caller to refresh instead.
+        throw new AppError(409, 'RECEIPT_CHANGED', 'The receipt changed while it was being removed. Refresh and try again.');
+      }
+      // A concurrent delete already removed the same metadata. The requested
+      // end state is satisfied, so removal remains idempotently successful.
+    }
     await this.store.removeOrphanByKey(receipt.storageKey).catch(() => undefined);
   }
 
@@ -112,9 +122,15 @@ export class ReceiptService {
       await this.storage.delete(storageKey);
       await this.store.removeOrphanByKey(storageKey).catch(() => undefined);
     } catch {
-      await this.store.recordOrphan(storageKey, reason).catch(() => undefined);
-      // Observable without leaking contents: only the opaque key and reason.
-      console.error(`[receipt] cleanup failed, tombstoned for reconciliation: ${storageKey} (${reason})`);
+      try {
+        await this.store.recordOrphan(storageKey, reason);
+        // Observable without leaking contents: only the opaque key and reason.
+        console.error(`[receipt] cleanup failed, tombstoned for reconciliation: ${storageKey} (${reason})`);
+      } catch {
+        // Do not claim a tombstone exists when the recovery metadata could not
+        // be persisted (for example during a database outage).
+        console.error(`[receipt] cleanup failed and tombstone persistence failed: ${storageKey} (${reason})`);
+      }
     }
   }
 }

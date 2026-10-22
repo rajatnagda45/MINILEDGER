@@ -94,11 +94,9 @@ export class PrismaDataStore implements DataStore {
     return receipt ? mapReceipt(receipt) : null;
   }
 
-  async deleteReceiptByLoan(loanId: string): Promise<ReceiptRecord | null> {
-    const receipt = await this.prisma.receipt.findUnique({ where: { loanId } });
-    if (!receipt) return null;
-    await this.prisma.receipt.delete({ where: { loanId } });
-    return mapReceipt(receipt);
+  async deleteReceiptByLoanIfMatches(loanId: string, storageKey: string): Promise<boolean> {
+    const result = await this.prisma.receipt.deleteMany({ where: { loanId, storageKey } });
+    return result.count === 1;
   }
 
   async recordOrphan(storageKey: string, reason: string): Promise<void> {
