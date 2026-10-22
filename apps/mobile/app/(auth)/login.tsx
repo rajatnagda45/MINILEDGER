@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { router } from 'expo-router';
+import { useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,13 +20,18 @@ type Values = z.infer<typeof schema>;
 
 export default function LoginScreen() {
   const { isWide } = useResponsive();
+  const submissionInFlight = useRef(false);
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { phone: '' } });
   const sendOtp = useMutation({
     mutationFn: (phone: string) => api.sendOtp(`+91${phone}`),
     onSuccess: (data) => router.push({ pathname: '/(auth)/verify', params: { phone: data.phoneNumber, resend: String(data.resendInSeconds) } }),
   });
   const serverError = sendOtp.error instanceof ApiError ? sendOtp.error.message : null;
-  const submit = form.handleSubmit((values) => sendOtp.mutate(values.phone));
+  const submit = form.handleSubmit((values) => {
+    if (submissionInFlight.current) return;
+    submissionInFlight.current = true;
+    sendOtp.mutate(values.phone, { onSettled: () => { submissionInFlight.current = false; } });
+  });
 
   const panel = (
     <FadeInView delay={80} style={styles.card}>
@@ -166,7 +172,7 @@ const styles = StyleSheet.create({
   tag_active: { backgroundColor: colors.primary },
   tag_overdue: { backgroundColor: colors.danger },
   tag_repaid: { backgroundColor: colors.success },
-  sampleNote: { ...type.caption, color: '#6E7D9C', marginTop: 2 },
+  sampleNote: { ...type.caption, color: colors.muted, marginTop: 2 },
   // Shared auth panel
   card: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radii.xl, padding: spacing.xl, gap: spacing.lg, ...shadow },
   cardHeader: { gap: 6 },

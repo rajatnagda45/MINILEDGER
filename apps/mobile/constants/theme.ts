@@ -15,7 +15,8 @@ export const colors = {
   line: '#303A4B',
   lineSoft: '#242D3B',
   // Primary action: electric blue (primaryDark is the lighter on-dark accent)
-  primary: '#5277FF',
+  // White normal-sized button text reaches WCAG AA on this blue (4.76:1).
+  primary: '#496ADF',
   primaryDark: '#93A9FF',
   primarySoft: '#1E2A49',
   // Deep brand panel (login product side)

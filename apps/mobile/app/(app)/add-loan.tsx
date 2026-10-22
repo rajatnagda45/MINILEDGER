@@ -31,6 +31,7 @@ export default function AddLoanScreen() {
   const queryClient = useQueryClient();
   const navigation = useNavigation();
   const amountRef = useRef<TextInput>(null);
+  const submissionInFlight = useRef(false);
   const [receipt, setReceipt] = useState<ReceiptAsset | null>(null);
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { friendName: '', amount: '', dueDate: toIsoDate(initialDueDate()) } });
   const mutation = useMutation({
@@ -61,7 +62,11 @@ export default function AddLoanScreen() {
   const dueDate = form.watch('dueDate');
   const selectedDate = new Date(`${dueDate}T12:00:00`);
   const error = mutation.error instanceof ApiError ? mutation.error.message : null;
-  const submit = form.handleSubmit((values) => mutation.mutate(values));
+  const submit = form.handleSubmit((values) => {
+    if (submissionInFlight.current) return;
+    submissionInFlight.current = true;
+    mutation.mutate(values, { onSettled: () => { submissionInFlight.current = false; } });
+  });
   usePreventRemove((form.formState.isDirty || receipt !== null) && !mutation.isSuccess, ({ data }) => {
     confirmAction(
       { title: 'Discard this loan?', message: 'Your entered details have not been saved.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', destructive: true },

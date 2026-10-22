@@ -17,6 +17,7 @@ export default function VerifyScreen() {
   const [otp, setOtp] = useState('');
   const [seconds, setSeconds] = useState(Number(params.resend ?? 30));
   const inputRef = useRef<TextInput>(null);
+  const verificationInFlight = useRef(false);
   const { signIn } = useAuth();
 
   useEffect(() => {
@@ -26,6 +27,11 @@ export default function VerifyScreen() {
   }, [seconds]);
 
   const verify = useMutation({ mutationFn: () => signIn(phone, otp) });
+  const submitOtp = () => {
+    if (otp.length !== 6 || verificationInFlight.current) return;
+    verificationInFlight.current = true;
+    verify.mutate(undefined, { onSettled: () => { verificationInFlight.current = false; } });
+  };
   const resend = useMutation({ mutationFn: () => api.sendOtp(phone), onSuccess: (data) => { setSeconds(data.resendInSeconds); setOtp(''); } });
   const error = verify.error instanceof ApiError ? verify.error.message : resend.error instanceof ApiError ? resend.error.message : null;
 
@@ -60,7 +66,7 @@ export default function VerifyScreen() {
             autoFocus
             caretHidden
             returnKeyType="done"
-            onSubmitEditing={() => otp.length === 6 && verify.mutate()}
+            onSubmitEditing={submitOtp}
             accessibilityLabel="Six-digit verification code"
             accessibilityHint="Enter or paste the code shown in the backend terminal"
             style={[styles.otpInput, noWebOutline]}
@@ -68,7 +74,7 @@ export default function VerifyScreen() {
         </View>
 
         {!!error && <View style={styles.error}><Ionicons name="alert-circle-outline" size={18} color={colors.danger} /><Text style={styles.errorText}>{error}</Text></View>}
-        <Button label="Verify & open ledger" loading={verify.isPending} disabled={otp.length !== 6} onPress={() => verify.mutate()} />
+        <Button label="Verify & open ledger" loading={verify.isPending} disabled={otp.length !== 6} onPress={submitOtp} />
 
         <View style={styles.resendRow}>
           <Text style={styles.resendCopy}>{seconds > 0 ? `You can request another code in 0:${String(seconds).padStart(2, '0')}` : 'Didn’t get the code?'}</Text>

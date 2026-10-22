@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +20,8 @@ export function ReceiptSection({ loanId, receipt }: { loanId: string; receipt: R
   const [replacing, setReplacing] = useState(false);
   const [draft, setDraft] = useState<ReceiptAsset | null>(null);
   const [version, setVersion] = useState(0);
+  const uploadInFlight = useRef(false);
+  const removalInFlight = useRef(false);
 
   // Receipt changes never touch financial totals, so the summary is not refetched.
   const refresh = () => Promise.all([
@@ -38,10 +40,19 @@ export function ReceiptSection({ loanId, receipt }: { loanId: string; receipt: R
     onError: (error) => notify('Couldn’t remove receipt', error instanceof ApiError ? error.message : 'Please try again.'),
   });
 
-  const onPick = (asset: ReceiptAsset | null) => { setDraft(asset); if (asset) upload.mutate(asset); };
+  const onPick = (asset: ReceiptAsset | null) => {
+    setDraft(asset);
+    if (!asset || uploadInFlight.current) return;
+    uploadInFlight.current = true;
+    upload.mutate(asset, { onSettled: () => { uploadInFlight.current = false; } });
+  };
   const confirmRemove = () => confirmAction(
     { title: 'Remove receipt?', message: 'This deletes the attached image. Your loan and totals are unchanged.', confirmLabel: 'Remove', destructive: true },
-    () => remove.mutate(),
+    () => {
+      if (removalInFlight.current) return;
+      removalInFlight.current = true;
+      remove.mutate(undefined, { onSettled: () => { removalInFlight.current = false; } });
+    },
   );
 
   return (

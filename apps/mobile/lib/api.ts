@@ -19,9 +19,22 @@ export function configureApi(sessionToken: string | null, unauthorized?: () => v
   onUnauthorized = unauthorized ?? null;
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+function timedSignal(external?: AbortSignal) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12_000);
+  let timedOut = false;
+  const forwardAbort = () => controller.abort();
+  if (external?.aborted) controller.abort();
+  else external?.addEventListener('abort', forwardAbort, { once: true });
+  const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, 12_000);
+  return {
+    signal: controller.signal,
+    timedOut: () => timedOut,
+    cleanup: () => { clearTimeout(timeout); external?.removeEventListener('abort', forwardAbort); },
+  };
+}
+
+async function request<T>(path: string, options: RequestInit = {}, externalSignal?: AbortSignal): Promise<T> {
+  const abort = timedSignal(externalSignal);
   try {
     const isForm = typeof FormData !== 'undefined' && options.body instanceof FormData;
     const response = await fetch(`${API_URL}${path}`, {
@@ -33,7 +46,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options.headers,
       },
-      signal: controller.signal,
+      signal: abort.signal,
     });
     if (!response.ok) {
       let body: ApiErrorBody | null = null;
@@ -45,10 +58,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     return await response.json() as T;
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    if (error instanceof Error && error.name === 'AbortError') throw new ApiError(0, 'TIMEOUT', 'The server took too long to respond.');
+    if (error instanceof Error && error.name === 'AbortError') {
+      if (!abort.timedOut()) throw error;
+      throw new ApiError(0, 'TIMEOUT', 'The server took too long to respond.');
+    }
     throw new ApiError(0, 'NETWORK_ERROR', 'Could not reach MiniLedger. Check your connection and API URL.');
   } finally {
-    clearTimeout(timeout);
+    abort.cleanup();
   }
 }
 
@@ -59,9 +75,9 @@ export const api = {
   verifyOtp: (phoneNumber: string, otp: string) => request<AuthSession>('/auth/verify-otp', {
     method: 'POST', body: JSON.stringify({ phoneNumber, otp }),
   }),
-  loans: () => request<{ loans: Loan[] }>('/loans'),
-  loan: (id: string) => request<{ loan: Loan }>(`/loans/${id}`),
-  summary: () => request<Summary>('/summary'),
+  loans: (signal?: AbortSignal) => request<{ loans: Loan[] }>('/loans', {}, signal),
+  loan: (id: string, signal?: AbortSignal) => request<{ loan: Loan }>(`/loans/${id}`, {}, signal),
+  summary: (signal?: AbortSignal) => request<Summary>('/summary', {}, signal),
   createLoan: (input: { friendName: string; amount: number; dueDate: string }) => request<{ loan: Loan }>('/loans', {
     method: 'POST', body: JSON.stringify(input),
   }),
@@ -84,13 +100,12 @@ export const api = {
   // Fetch a receipt image as a Blob (web). Shares the client's 401 handling, so
   // an expired session follows the app's normal sign-out flow instead of
   // surfacing as a generic preview error.
-  fetchReceiptBlob: async (loanId: string): Promise<Blob> => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12_000);
+  fetchReceiptBlob: async (loanId: string, externalSignal?: AbortSignal): Promise<Blob> => {
+    const abort = timedSignal(externalSignal);
     try {
       const response = await fetch(`${API_URL}/loans/${loanId}/receipt`, {
         headers: { Accept: 'image/*', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        signal: controller.signal,
+        signal: abort.signal,
       });
       if (!response.ok) {
         if (response.status === 401 && token) onUnauthorized?.();
@@ -99,10 +114,13 @@ export const api = {
       return await response.blob();
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      if (error instanceof Error && error.name === 'AbortError') throw new ApiError(0, 'TIMEOUT', 'The receipt took too long to load.');
+      if (error instanceof Error && error.name === 'AbortError') {
+        if (!abort.timedOut()) throw error;
+        throw new ApiError(0, 'TIMEOUT', 'The receipt took too long to load.');
+      }
       throw new ApiError(0, 'NETWORK_ERROR', 'Could not load the receipt. Check your connection.');
     } finally {
-      clearTimeout(timeout);
+      abort.cleanup();
     }
   },
 };

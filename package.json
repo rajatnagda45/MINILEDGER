@@ -11,7 +11,8 @@
     "dev:backend": "npm run dev --workspace @miniledger/backend",
     "dev:mobile": "npm run start --workspace @miniledger/mobile",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspace @miniledger/backend",
+    "test": "npm run test --workspaces --if-present",
+    "test:mobile": "npm run test --workspace @miniledger/mobile",
     "lint": "npm run lint --workspaces --if-present",
     "db:generate": "npm run db:generate --workspace @miniledger/backend",
     "db:migrate": "npm run db:migrate --workspace @miniledger/backend",
@@ -19,6 +20,12 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "react": "19.1.0"
+  },
+  "overrides": {
+    "react": "19.1.0"
   }
 }
 

@@ -20,19 +20,20 @@ export function ReceiptImage({ loanId, token, style, resizeMode = 'cover' }: { l
     if (Platform.OS !== 'web') { setStatus('loading'); setUri(`${api.receiptEndpoint(loanId)}?v=${token}`); return; }
     let active = true;
     let objectUrl: string | null = null;
+    const controller = new AbortController();
     setStatus('loading');
     (async () => {
       try {
         // Goes through the API client: a 401 triggers the app's sign-out flow
         // rather than silently showing a generic error.
-        objectUrl = URL.createObjectURL(await api.fetchReceiptBlob(loanId));
+        objectUrl = URL.createObjectURL(await api.fetchReceiptBlob(loanId, controller.signal));
         if (active) { setUri(objectUrl); setStatus('ready'); }
       } catch (error) {
         if (!active) return;
         setStatus(error instanceof ApiError && error.code === 'RECEIPT_NOT_FOUND' ? 'missing' : 'error');
       }
     })();
-    return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+    return () => { active = false; controller.abort(); if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [loanId, token]);
 
   if (status === 'error' || status === 'missing') {

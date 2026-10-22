@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,8 +26,9 @@ export default function DashboardScreen() {
   const { isDesktop } = useResponsive();
   const [filter, setFilter] = useState<Filter>('ALL');
   const [notice, setNotice] = useState<string | null>(null);
-  const loansQuery = useQuery({ queryKey: ['loans'], queryFn: api.loans });
-  const summaryQuery = useQuery({ queryKey: ['summary'], queryFn: api.summary });
+  const repaymentsInFlight = useRef(new Set<string>());
+  const loansQuery = useQuery({ queryKey: ['loans'], queryFn: ({ signal }) => api.loans(signal) });
+  const summaryQuery = useQuery({ queryKey: ['summary'], queryFn: ({ signal }) => api.summary(signal) });
   const repay = useMutation({
     mutationFn: api.repayLoan,
     onSuccess: async (result) => {
@@ -37,10 +38,16 @@ export default function DashboardScreen() {
         queryClient.invalidateQueries({ queryKey: ['summary'] }),
         queryClient.invalidateQueries({ queryKey: ['loan', result.loan.id] }),
       ]);
-      setTimeout(() => setNotice(null), 3000);
     },
     onError: (error) => notify('Couldn’t update loan', error instanceof ApiError ? error.message : 'Please try again.'),
+    onSettled: (_data, _error, loanId) => { repaymentsInFlight.current.delete(loanId); },
   });
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 3000);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   const filtered = useMemo(() => {
     const loans = loansQuery.data?.loans ?? [];
@@ -50,7 +57,11 @@ export default function DashboardScreen() {
   const refresh = async () => Promise.all([loansQuery.refetch(), summaryQuery.refetch()]);
   const confirmRepay = (loan: Loan) => confirmAction(
     { title: 'Mark as repaid?', message: `Confirm that ${loan.friendName} returned ${formatCurrency(loan.amount)}. This will update your totals immediately.`, confirmLabel: 'Mark repaid' },
-    () => repay.mutate(loan.id),
+    () => {
+      if (repaymentsInFlight.current.has(loan.id)) return;
+      repaymentsInFlight.current.add(loan.id);
+      repay.mutate(loan.id);
+    },
   );
 
   const isInitialLoading = loansQuery.isLoading || summaryQuery.isLoading;

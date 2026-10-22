@@ -8,11 +8,12 @@ interface ButtonProps extends PressableProps {
   style?: ViewStyle;
 }
 
-export function Button({ label, loading = false, disabled, variant = 'primary', style, ...props }: ButtonProps) {
+export function Button({ label, loading = false, disabled, variant = 'primary', style, accessibilityLabel, ...props }: ButtonProps) {
   const isDisabled = disabled || loading;
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: isDisabled, busy: loading }}
       disabled={isDisabled}
       style={({ pressed }) => [styles.base, styles[variant], pressed && styles.pressed, isDisabled && styles.disabled, style]}
