@@ -5,8 +5,10 @@ import { Platform } from 'react-native';
 export const colors = {
   // Surfaces: deep graphite canvas → slate cards → elevated panels
   canvas: '#10141D',
+  canvasLift: '#131925',
   surface: '#191F2B',
   elevated: '#222B3A',
+  surfaceHover: '#202838',
   // Text hierarchy on dark
   ink: '#F2F5FA',
   inkSoft: '#A5B0C2',
@@ -49,6 +51,10 @@ export const motion = {
 } as const;
 
 export const breakpoints = { tablet: 640, desktop: 1024 } as const;
+
+// Shared layout boundaries keep large screens intentional without stretching
+// forms and reading surfaces beyond comfortable measures.
+export const layout = { pageMax: 1240, readingMax: 720, rail: 340 } as const;
 
 // On a dark UI, depth comes mostly from surface/border contrast; shadows stay
 // subtle and are cast with black so they read against graphite.

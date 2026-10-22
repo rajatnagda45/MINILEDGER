@@ -9,10 +9,10 @@ import { BrandMark } from '@/components/brand-mark';
 import { FadeInView } from '@/components/fade-in-view';
 import { ErrorState, LoadingState } from '@/components/state-view';
 import { LoanCard } from '@/components/loan-card';
-import { colors, radii, shadow, spacing, type } from '@/constants/theme';
+import { colors, layout, radii, shadow, spacing, type } from '@/constants/theme';
 import { useResponsive } from '@/hooks/use-responsive';
 import { api, ApiError } from '@/lib/api';
-import { formatCurrency } from '@/lib/format';
+import { formatCurrency, formatDate } from '@/lib/format';
 import { useAuth } from '@/providers/auth-provider';
 import { useInteraction } from '@/providers/interaction-provider';
 
@@ -24,7 +24,7 @@ export default function DashboardScreen() {
   const queryClient = useQueryClient();
   const { signOut } = useAuth();
   const { confirm, notify } = useInteraction();
-  const { isDesktop } = useResponsive();
+  const { width, isDesktop } = useResponsive();
   const [filter, setFilter] = useState<Filter>('ALL');
   const repaymentsInFlight = useRef(new Set<string>());
   const loansQuery = useQuery({ queryKey: ['loans'], queryFn: ({ signal }) => api.loans(signal) });
@@ -67,7 +67,7 @@ export default function DashboardScreen() {
 
   const overview = (
     <>
-      {summaryQuery.data ? <FadeInView delay={60}><SummaryPanel summary={summaryQuery.data} /></FadeInView> : summaryQuery.isLoading ? <SummarySkeleton /> : null}
+      {summaryQuery.data ? <FadeInView delay={60}><SummaryPanel summary={summaryQuery.data} compact={width < 360} /></FadeInView> : summaryQuery.isLoading ? <SummarySkeleton /> : null}
     </>
   );
 
@@ -90,6 +90,7 @@ export default function DashboardScreen() {
       onPress={() => router.push({ pathname: '/(app)/loan/[id]', params: { id: item.id } })}
       onRepay={() => confirmRepay(item)}
       repaying={repay.isPending && repay.variables === item.id}
+      wide={isDesktop}
     />
   );
   const listStates = (
@@ -101,35 +102,40 @@ export default function DashboardScreen() {
   const emptyComponent = !isInitialLoading && !error ? <EmptyState filtered={filter !== 'ALL'} filterName={filterLabel(filter)} onAdd={onAdd} onShowAll={() => setFilter('ALL')} /> : null;
   const refreshControl = <RefreshControl refreshing={loansQuery.isRefetching || summaryQuery.isRefetching} onRefresh={() => void refresh()} tintColor={colors.primary} />;
 
-  // ----- Desktop: overview sidebar + dedicated loan-list column -----
+  // ----- Desktop: one cohesive workspace with full-width records -----
   if (isDesktop) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.deskShell}>
-          <View style={styles.deskSidebar}>
-            <TopBar onAdd={onAdd} onSignOut={onSignOut} wide />
-            <View style={styles.heading}>
-              <Text style={styles.eyebrow}>YOUR LENDING</Text>
-              <Text style={styles.title}>Dashboard</Text>
-              <Text style={styles.subheading}>A clear view of every rupee you’re owed.</Text>
+        <FlatList
+          data={filtered}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+          contentContainerStyle={styles.deskContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={refreshControl}
+          ListHeaderComponent={(
+            <View style={styles.deskHeader}>
+              <TopBar onAdd={onAdd} onSignOut={onSignOut} wide />
+              <View style={styles.deskTitleRow}>
+                <View style={styles.heading}>
+                  <Text style={styles.eyebrow}>YOUR LENDING</Text>
+                  <Text style={styles.title}>A clear view of your ledger.</Text>
+                  <Text style={styles.subheading}>Track every rupee, due date and repayment from one place.</Text>
+                </View>
+                <View style={styles.privacyPill}><Ionicons name="shield-checkmark-outline" size={16} color={colors.success} /><Text style={styles.privacyText}>Private to your account</Text></View>
+              </View>
+              <View style={styles.overviewGrid}>
+                <View style={styles.summaryColumn}>{overview}</View>
+                {summaryQuery.data && loansQuery.data && <LedgerPulse summary={summaryQuery.data} loans={loansQuery.data.loans} onAdd={onAdd} />}
+              </View>
+              {sectionRow}
+              {listStates}
             </View>
-            {overview}
-          </View>
-          <View style={styles.deskMain}>
-            {sectionRow}
-            {listStates}
-            <FlatList
-              data={filtered}
-              keyExtractor={(item) => item.id}
-              renderItem={renderItem}
-              ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
-              contentContainerStyle={styles.deskListContent}
-              showsVerticalScrollIndicator={false}
-              refreshControl={refreshControl}
-              ListEmptyComponent={emptyComponent}
-            />
-          </View>
-        </View>
+          )}
+          ListEmptyComponent={emptyComponent}
+          ListFooterComponent={<View style={styles.footerSpace} />}
+        />
       </SafeAreaView>
     );
   }
@@ -165,6 +171,39 @@ export default function DashboardScreen() {
   );
 }
 
+function LedgerPulse({ summary, loans, onAdd }: { summary: Summary; loans: Loan[]; onAdd: () => void }) {
+  const outstanding = loans.filter((loan) => loan.status === 'OUTSTANDING');
+  const nextDue = [...outstanding].sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0];
+  const overdue = summary.overdueLoanCount > 0;
+  const empty = loans.length === 0;
+  const title = overdue ? 'Needs attention' : nextDue ? 'Everything is on track' : empty ? 'Ready for your first entry' : 'Everything is settled';
+  const copy = overdue
+    ? `${summary.overdueLoanCount} ${summary.overdueLoanCount === 1 ? 'loan is' : 'loans are'} past due. Review the highlighted records below.`
+    : nextDue
+      ? `${nextDue.friendName} is next, due ${formatDate(nextDue.dueDate)}.`
+      : empty
+        ? 'Add a loan to start tracking due dates and repayments.'
+        : 'No money is currently outstanding in your ledger.';
+  return (
+    <View style={[styles.pulseCard, overdue && styles.pulseCardDanger]}>
+      <View style={styles.pulseTop}>
+        <View style={[styles.pulseIcon, overdue && styles.pulseIconDanger]}><Ionicons name={overdue ? 'alert-circle-outline' : empty ? 'add-circle-outline' : nextDue ? 'pulse-outline' : 'checkmark-circle-outline'} size={24} color={overdue ? colors.danger : empty || nextDue ? colors.primaryDark : colors.success} /></View>
+        <View style={styles.pulseCopy}>
+          <Text style={styles.pulseEyebrow}>LEDGER STATUS</Text>
+          <Text style={styles.pulseTitle}>{title}</Text>
+          <Text style={styles.pulseBody}>{copy}</Text>
+        </View>
+      </View>
+      <View style={styles.pulseStats}>
+        <View><Text style={styles.pulseNumber}>{summary.activeLoanCount}</Text><Text style={styles.pulseLabel}>Active</Text></View>
+        <View style={styles.pulseDivider} />
+        <View><Text style={styles.pulseNumber}>{summary.repaidLoanCount}</Text><Text style={styles.pulseLabel}>Repaid</Text></View>
+      </View>
+      {empty && <Pressable accessibilityRole="button" onPress={onAdd} style={styles.pulseAction}><Text style={styles.pulseActionText}>Add first loan</Text><Ionicons name="arrow-forward" size={16} color={colors.primaryDark} /></Pressable>}
+    </View>
+  );
+}
+
 function TopBar({ onAdd, onSignOut, wide = false }: { onAdd: () => void; onSignOut: () => void; wide?: boolean }) {
   return (
     <View style={styles.topBar}>
@@ -181,7 +220,7 @@ function TopBar({ onAdd, onSignOut, wide = false }: { onAdd: () => void; onSignO
   );
 }
 
-function SummaryPanel({ summary }: { summary: Summary }) {
+function SummaryPanel({ summary, compact = false }: { summary: Summary; compact?: boolean }) {
   return (
     <View style={styles.summaryCard}>
       <View style={styles.orbOne} /><View style={styles.orbTwo} />
@@ -191,11 +230,11 @@ function SummaryPanel({ summary }: { summary: Summary }) {
       </View>
       <View style={styles.summaryDivider} />
       <View style={styles.summaryStats}>
-        <SummaryStat label="Total lent" value={formatCurrency(summary.totalLent)} />
+        <SummaryStat label="Total lent" value={formatCurrency(summary.totalLent)} compact={compact} />
         <View style={styles.statDivider} />
-        <SummaryStat label="Repaid" value={formatCurrency(summary.totalRepaid)} tone="success" />
+        <SummaryStat label="Repaid" value={formatCurrency(summary.totalRepaid)} tone="success" compact={compact} />
         <View style={styles.statDivider} />
-        <SummaryStat label="Overdue" value={formatCurrency(summary.overdueAmount)} tone={summary.overdueAmount > 0 ? 'danger' : undefined} />
+        <SummaryStat label="Overdue" value={formatCurrency(summary.overdueAmount)} tone={summary.overdueAmount > 0 ? 'danger' : undefined} compact={compact} />
       </View>
       {summary.overdueLoanCount > 0 && <View style={styles.overdueCallout}><View style={styles.alertDot} /><Text style={styles.overdueCalloutText}>{summary.overdueLoanCount} {summary.overdueLoanCount === 1 ? 'loan needs' : 'loans need'} your attention</Text><Ionicons name="arrow-forward" size={15} color={colors.danger} /></View>}
     </View>
@@ -215,8 +254,8 @@ function SummarySkeleton() {
   );
 }
 
-function SummaryStat({ label, value, tone }: { label: string; value: string; tone?: 'success' | 'danger' | undefined }) {
-  return <View style={styles.summaryStat}><Text style={styles.statLabel}>{label}</Text><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.62} style={[styles.statValue, tone === 'success' && styles.statSuccess, tone === 'danger' && styles.statDanger]}>{value}</Text></View>;
+function SummaryStat({ label, value, tone, compact = false }: { label: string; value: string; tone?: 'success' | 'danger' | undefined; compact?: boolean }) {
+  return <View style={styles.summaryStat}><Text style={styles.statLabel}>{label}</Text><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.62} style={[styles.statValue, compact && styles.statValueCompact, tone === 'success' && styles.statSuccess, tone === 'danger' && styles.statDanger]}>{value}</Text></View>;
 }
 
 function EmptyState({ filtered, filterName, onAdd, onShowAll }: { filtered: boolean; filterName: string; onAdd: () => void; onShowAll: () => void }) {
@@ -239,11 +278,29 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas },
   content: { width: '100%', maxWidth: 680, alignSelf: 'center', paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
   headerWrap: { gap: spacing.xl, marginBottom: spacing.md },
-  // Desktop shell
-  deskShell: { flex: 1, flexDirection: 'row', width: '100%', maxWidth: 1180, alignSelf: 'center', paddingHorizontal: spacing.xxl, paddingTop: spacing.xl, gap: spacing.xxl },
-  deskSidebar: { width: 380, gap: spacing.xl },
-  deskMain: { flex: 1, gap: spacing.lg, paddingBottom: spacing.sm },
-  deskListContent: { paddingBottom: spacing.xxxl, gap: 0 },
+  // Desktop workspace
+  deskContent: { width: '100%', maxWidth: layout.pageMax, alignSelf: 'center', paddingHorizontal: spacing.xxl, paddingTop: spacing.xl },
+  deskHeader: { gap: spacing.xl, marginBottom: spacing.lg },
+  deskTitleRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: spacing.xl },
+  overviewGrid: { flexDirection: 'row', alignItems: 'stretch', gap: spacing.lg },
+  summaryColumn: { flex: 1.55 },
+  privacyPill: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: colors.successSoft, borderWidth: 1, borderColor: colors.successLine, borderRadius: radii.pill, paddingHorizontal: spacing.sm, minHeight: 36 },
+  privacyText: { ...type.caption, color: colors.success },
+  pulseCard: { flex: 1, minWidth: 300, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radii.xl, padding: spacing.xl, gap: spacing.md },
+  pulseCardDanger: { borderColor: colors.dangerLine },
+  pulseTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  pulseIcon: { width: 46, height: 46, flexShrink: 0, borderRadius: 15, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  pulseIconDanger: { backgroundColor: colors.dangerSoft },
+  pulseCopy: { gap: 5, flex: 1 },
+  pulseEyebrow: { ...type.micro, color: colors.muted },
+  pulseTitle: { ...type.h2, color: colors.ink },
+  pulseBody: { ...type.body, color: colors.inkSoft },
+  pulseStats: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.line },
+  pulseNumber: { ...type.h2, color: colors.ink, fontVariant: ['tabular-nums'] },
+  pulseLabel: { ...type.caption, color: colors.muted },
+  pulseDivider: { width: 1, height: 32, backgroundColor: colors.line },
+  pulseAction: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 42, borderRadius: radii.sm, paddingHorizontal: spacing.sm, backgroundColor: colors.primarySoft },
+  pulseActionText: { ...type.caption, color: colors.primaryDark },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   topActions: { flexDirection: 'row', gap: spacing.xs },
   addTop: { height: 42, borderRadius: 14, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.sm, gap: 4 },
@@ -273,6 +330,7 @@ const styles = StyleSheet.create({
   statDivider: { width: 1, backgroundColor: colors.line, marginHorizontal: spacing.sm },
   statLabel: { ...type.caption, color: colors.muted },
   statValue: { ...type.h3, color: colors.ink, fontVariant: ['tabular-nums'] },
+  statValueCompact: { fontSize: 14, lineHeight: 19, letterSpacing: -0.2 },
   statSuccess: { color: colors.success },
   statDanger: { color: colors.danger },
   overdueCallout: { marginTop: spacing.lg, backgroundColor: colors.dangerSoft, borderRadius: radii.sm, paddingHorizontal: spacing.sm, minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 7 },

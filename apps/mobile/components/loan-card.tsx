@@ -4,17 +4,17 @@ import type { Loan } from '@miniledger/shared';
 import { colors, radii, shadow, spacing, type } from '@/constants/theme';
 import { formatCurrency, formatDate, initials } from '@/lib/format';
 
-export function LoanCard({ loan, onPress, onRepay, repaying = false }: { loan: Loan; onPress: () => void; onRepay: () => void; repaying?: boolean }) {
+export function LoanCard({ loan, onPress, onRepay, repaying = false, wide = false }: { loan: Loan; onPress: () => void; onRepay: () => void; repaying?: boolean; wide?: boolean }) {
   const repaid = loan.status === 'REPAID';
   return (
-    <View style={[styles.card, loan.isOverdue && styles.overdueCard]}>
+    <View style={[styles.card, wide && styles.cardWide, loan.isOverdue && styles.overdueCard]}>
       {loan.isOverdue && <View style={styles.overdueRail} />}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${loan.friendName}, ${formatCurrency(loan.amount)}, ${loan.isOverdue ? 'overdue' : repaid ? 'repaid' : `due ${formatDate(loan.dueDate)}`}`}
         accessibilityHint="Opens loan details"
         onPress={onPress}
-        style={({ pressed }) => [styles.main, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.main, wide && styles.mainWide, pressed && styles.pressed]}
       >
         <View style={styles.topRow}>
           <View style={[styles.avatar, loan.isOverdue && styles.overdueAvatar, repaid && styles.repaidAvatar]}>
@@ -41,7 +41,7 @@ export function LoanCard({ loan, onPress, onRepay, repaying = false }: { loan: L
       </Pressable>
 
       {!repaid && (
-        <View style={styles.footer}>
+        <View style={[styles.footer, wide && styles.footerWide]}>
           {loan.receiptAvailable && <View style={styles.receiptLabel}>
             <Ionicons name="receipt" size={15} color={colors.muted} />
             <Text style={styles.receiptText}>Receipt attached</Text>
@@ -66,12 +66,14 @@ export function LoanCard({ loan, onPress, onRepay, repaying = false }: { loan: L
 
 const styles = StyleSheet.create({
   card: { backgroundColor: colors.surface, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.line, overflow: 'hidden', ...shadow },
+  cardWide: { flexDirection: 'row', alignItems: 'stretch' },
   // Overdue uses a single dominant cue — the coral rail — supported sparingly by
   // the badge and due-date text. No full-surface tint, so the row stays calm.
   overdueCard: { borderColor: colors.dangerLine },
   overdueRail: { position: 'absolute', top: 0, bottom: 0, left: 0, width: 4, backgroundColor: colors.danger },
   main: { padding: spacing.md },
-  pressed: { opacity: 0.75, backgroundColor: colors.canvas },
+  mainWide: { flex: 1, justifyContent: 'center' },
+  pressed: { opacity: 0.82, backgroundColor: colors.surfaceHover },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   avatar: { width: 46, height: 46, borderRadius: 16, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   overdueAvatar: { backgroundColor: colors.dangerSoft },
@@ -97,6 +99,7 @@ const styles = StyleSheet.create({
   badgeTextOverdue: { color: colors.danger },
   badgeTextRepaid: { color: colors.success },
   footer: { minHeight: 54, paddingHorizontal: spacing.md, borderTopWidth: 1, borderTopColor: colors.line, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
+  footerWide: { minWidth: 154, borderTopWidth: 0, borderLeftWidth: 1, borderLeftColor: colors.line, paddingLeft: spacing.sm },
   receiptLabel: { flexDirection: 'row', gap: 5, alignItems: 'center' },
   receiptText: { ...type.caption, color: colors.muted },
   repay: { minHeight: 40, borderRadius: radii.sm, backgroundColor: colors.primarySoft, paddingHorizontal: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto' },

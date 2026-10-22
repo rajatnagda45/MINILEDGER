@@ -103,11 +103,7 @@ export default function LoginScreen() {
   );
 }
 
-/**
- * Desktop-only brand showcase. Uses an illustrative ledger motif — clearly
- * labelled as a sample — to balance the split layout without inventing any
- * real account figures, testimonials, or user counts.
- */
+/** Desktop-only product context using real app capabilities, never fake data. */
 function ProductPanel() {
   return (
     <View style={styles.product}>
@@ -119,24 +115,21 @@ function ProductPanel() {
         <Text style={styles.productSubtitle}>Keep every friendly loan organised, due dates visible, and repayments stress-free.</Text>
       </View>
 
-      <View style={styles.sample}>
-        <Text style={styles.sampleLabel}>A PREVIEW OF YOUR LEDGER</Text>
+      <View style={styles.principles}>
+        <Text style={styles.principlesLabel}>BUILT FOR CLEAR RECORDS</Text>
         {[
-          { name: 'Aarav Sharma', amount: '₹2,500', tone: 'active' as const, meta: 'Due 29 Oct' },
-          { name: 'Priya Nair', amount: '₹1,200', tone: 'overdue' as const, meta: 'Overdue' },
-          { name: 'Karan Mehta', amount: '₹5,000', tone: 'repaid' as const, meta: 'Repaid' },
-        ].map((row) => (
-          <View key={row.name} style={styles.sampleRow}>
-            <View style={styles.sampleAvatar}><Text style={styles.sampleAvatarText}>{row.name.split(' ').map((p) => p[0]).join('')}</Text></View>
-            <View style={styles.sampleInfo}>
-              <Text style={styles.sampleName}>{row.name}</Text>
-              <Text style={styles.sampleMeta}>{row.meta}</Text>
+          { icon: 'calculator-outline' as const, title: 'Precise amounts', copy: 'Values are stored to the paise and formatted in Indian currency.' },
+          { icon: 'calendar-outline' as const, title: 'Visible due dates', copy: 'Active and overdue records stay easy to distinguish.' },
+          { icon: 'receipt-outline' as const, title: 'Receipts with context', copy: 'Keep an optional image attached to the right loan.' },
+        ].map((item) => (
+          <View key={item.title} style={styles.principleRow}>
+            <View style={styles.principleIcon}><Ionicons name={item.icon} size={20} color={colors.primaryDark} /></View>
+            <View style={styles.principleCopy}>
+              <Text style={styles.principleTitle}>{item.title}</Text>
+              <Text style={styles.principleBody}>{item.copy}</Text>
             </View>
-            <Text style={styles.sampleAmount}>{row.amount}</Text>
-            <View style={[styles.sampleTag, styles[`tag_${row.tone}`]]} />
           </View>
         ))}
-        <Text style={styles.sampleNote}>Illustration only — your real ledger loads after you sign in.</Text>
       </View>
     </View>
   );
@@ -153,30 +146,21 @@ const styles = StyleSheet.create({
   title: { ...type.display, color: colors.ink },
   subtitle: { ...type.body, fontSize: 16, lineHeight: 24, color: colors.inkSoft, maxWidth: 355 },
   // Desktop split
-  split: { flex: 1, flexDirection: 'row', width: '100%', maxWidth: 1180, alignSelf: 'center' },
+  split: { flex: 1, flexDirection: 'row', width: '100%', maxWidth: 1240, alignSelf: 'center', paddingHorizontal: spacing.xl, paddingVertical: spacing.xl, gap: spacing.xl },
   authColumn: { flex: 1, minWidth: 420, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xxl, paddingVertical: spacing.xxl },
   authInner: { width: '100%', maxWidth: 420 },
-  product: { flex: 1.05, backgroundColor: colors.navy, padding: 56, justifyContent: 'center', gap: 40, overflow: 'hidden' },
+  product: { flex: 1.05, backgroundColor: colors.navy, borderWidth: 1, borderColor: colors.line, borderRadius: radii.xl, padding: 56, justifyContent: 'center', gap: 40, overflow: 'hidden' },
   productGlow: { position: 'absolute', width: 420, height: 420, borderRadius: 210, backgroundColor: 'rgba(72,116,255,0.16)', top: -140, right: -120 },
   productHero: { gap: spacing.md, maxWidth: 440 },
   productEyebrow: { alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: radii.pill, paddingHorizontal: 12, paddingVertical: 7 },
   productEyebrowText: { ...type.micro, color: '#AFC3FF' },
   productTitle: { fontSize: 40, lineHeight: 46, fontWeight: '800', letterSpacing: -1.2, color: colors.white },
   productSubtitle: { ...type.body, fontSize: 17, lineHeight: 26, color: '#AEBBD4' },
-  sample: { backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: radii.lg, padding: spacing.lg, gap: spacing.sm, maxWidth: 440 },
-  sampleLabel: { ...type.micro, color: '#8595B5', marginBottom: 2 },
-  sampleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: radii.md, padding: spacing.sm },
-  sampleAvatar: { width: 38, height: 38, borderRadius: 13, backgroundColor: 'rgba(72,116,255,0.28)', alignItems: 'center', justifyContent: 'center' },
-  sampleAvatarText: { ...type.caption, color: colors.white },
-  sampleInfo: { flex: 1 },
-  sampleName: { ...type.bodyStrong, color: colors.white },
-  sampleMeta: { ...type.caption, color: '#8595B5' },
-  sampleAmount: { ...type.bodyStrong, color: colors.white, fontVariant: ['tabular-nums'] },
-  sampleTag: { width: 6, height: 28, borderRadius: 3 },
-  tag_active: { backgroundColor: colors.primary },
-  tag_overdue: { backgroundColor: colors.danger },
-  tag_repaid: { backgroundColor: colors.success },
-  sampleNote: { ...type.caption, color: colors.muted, marginTop: 2 },
+  principles: { backgroundColor: 'rgba(255,255,255,0.045)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: radii.lg, padding: spacing.lg, gap: spacing.lg, maxWidth: 440 },
+  principlesLabel: { ...type.micro, color: '#8F9DBC' },
+  principleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  principleIcon: { width: 40, height: 40, borderRadius: 13, backgroundColor: 'rgba(72,116,255,0.18)', alignItems: 'center', justifyContent: 'center' },
+  principleCopy: { flex: 1, gap: 2 }, principleTitle: { ...type.bodyStrong, color: colors.white }, principleBody: { ...type.caption, color: '#AEBBD4' },
   // Shared auth panel
   card: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radii.xl, padding: spacing.xl, gap: spacing.lg, ...shadow },
   cardHeader: { gap: 6 },

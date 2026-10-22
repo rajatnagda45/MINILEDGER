@@ -13,7 +13,8 @@ import { Button } from '@/components/button';
 import { FadeInView } from '@/components/fade-in-view';
 import { FormField } from '@/components/form-field';
 import { ReceiptPicker } from '@/components/receipt-picker';
-import { colors, radii, shadow, spacing, type } from '@/constants/theme';
+import { colors, layout, radii, shadow, spacing, type } from '@/constants/theme';
+import { useResponsive } from '@/hooks/use-responsive';
 import { api, ApiError, type ReceiptAsset } from '@/lib/api';
 import { formatDate, isValidIsoDate, toIsoDate } from '@/lib/format';
 import { useInteraction } from '@/providers/interaction-provider';
@@ -28,6 +29,7 @@ type Values = z.infer<typeof schema>;
 function initialDueDate() { const date = new Date(); date.setDate(date.getDate() + 7); return date; }
 
 export default function AddLoanScreen() {
+  const { isDesktop } = useResponsive();
   const queryClient = useQueryClient();
   const { confirm, notify } = useInteraction();
   const navigation = useNavigation();
@@ -86,7 +88,7 @@ export default function AddLoanScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.content, isDesktop && styles.contentDesktop]} keyboardShouldPersistTaps="handled">
           <View style={styles.nav}>
             <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => router.back()} style={styles.iconButton}><Ionicons name="close" size={23} color={colors.ink} /></Pressable>
             <View style={styles.navTitle}><Text style={styles.navEyebrow}>NEW ENTRY</Text><Text style={styles.navHeading}>Add a loan</Text></View>
@@ -99,7 +101,7 @@ export default function AddLoanScreen() {
           </View>
 
           {saved ? (
-            <FadeInView delay={40} style={styles.successCard}>
+            <FadeInView delay={40} style={StyleSheet.flatten([styles.successCard, isDesktop && styles.successCardDesktop])}>
               <View
                 accessible
                 accessibilityRole="alert"
@@ -126,8 +128,9 @@ export default function AddLoanScreen() {
               </View>
             </FadeInView>
           ) : (
-            <>
-              <FadeInView delay={60} style={styles.formCard}>
+            <View style={[styles.workspace, isDesktop && styles.workspaceDesktop]}>
+              <View style={styles.mainColumn}>
+                <FadeInView delay={60} style={styles.formCard}>
                 <Controller control={form.control} name="friendName" render={({ field: { onChange, onBlur, value }, fieldState }) => (
                   <FormField label="Friend’s name" placeholder="e.g. Aarav Sharma" autoCapitalize="words" autoCorrect={false} returnKeyType="next" blurOnSubmit={false} value={value} onChangeText={onChange} onBlur={onBlur} onSubmitEditing={() => amountRef.current?.focus()} error={fieldState.error?.message} />
                 )} />
@@ -150,13 +153,12 @@ export default function AddLoanScreen() {
 
                 <View style={styles.divider} />
                 <ReceiptPicker value={receipt} onChange={setReceipt} disabled={mutation.isPending} />
-              </FadeInView>
-
-              <View style={styles.note}><Ionicons name="information-circle-outline" size={20} color={colors.primaryDark} /><Text style={styles.noteText}>Past due dates are allowed and will be clearly marked overdue as soon as the loan is added.</Text></View>
-              {!!error && <View style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite"><Ionicons name="alert-circle-outline" size={19} color={colors.danger} /><Text style={styles.errorText}>{error}</Text></View>}
-              <Button label="Add loan" loadingLabel="Saving loan…" loading={mutation.isPending} onPress={submit} />
-              <Text style={styles.footer}>Your financial totals come from the server and update after this loan is saved.</Text>
-            </>
+                </FadeInView>
+                {!!error && <View style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite"><Ionicons name="alert-circle-outline" size={19} color={colors.danger} /><Text style={styles.errorText}>{error}</Text></View>}
+                <Button label="Add loan" loadingLabel="Saving loan…" loading={mutation.isPending} onPress={submit} />
+              </View>
+              <GuidancePanel wide={isDesktop} />
+            </View>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -164,23 +166,54 @@ export default function AddLoanScreen() {
   );
 }
 
+function GuidancePanel({ wide }: { wide: boolean }) {
+  return (
+    <View style={[styles.guidance, wide && styles.guidanceDesktop]}>
+      <View style={styles.guidanceHeading}>
+        <View style={styles.guidanceIcon}><Ionicons name="shield-checkmark-outline" size={21} color={colors.primaryDark} /></View>
+        <View style={styles.guidanceHeadingCopy}><Text style={styles.guidanceTitle}>A clean ledger entry</Text><Text style={styles.guidanceIntro}>Only the details needed to follow this loan.</Text></View>
+      </View>
+      <View style={styles.guidanceList}>
+        <GuidanceRow icon="calendar-outline" title="Due dates stay visible" copy="Past dates are allowed and will be marked overdue immediately." />
+        <GuidanceRow icon="receipt-outline" title="Receipts are optional" copy="Attach a JPEG or PNG up to 5 MB now, or add one later." />
+        <GuidanceRow icon="sync-outline" title="Totals update after save" copy="Your dashboard values come from the server, not this form." />
+      </View>
+    </View>
+  );
+}
+
+function GuidanceRow({ icon, title, copy }: { icon: keyof typeof Ionicons.glyphMap; title: string; copy: string }) {
+  return <View style={styles.guidanceRow}><View style={styles.guidanceRowIcon}><Ionicons name={icon} size={18} color={colors.inkSoft} /></View><View style={styles.guidanceRowCopy}><Text style={styles.guidanceRowTitle}>{title}</Text><Text style={styles.guidanceRowBody}>{copy}</Text></View></View>;
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas }, flex: { flex: 1 },
-  content: { width: '100%', maxWidth: 620, alignSelf: 'center', padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.lg },
+  content: { width: '100%', maxWidth: layout.readingMax, alignSelf: 'center', padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.lg },
+  contentDesktop: { maxWidth: layout.pageMax, paddingHorizontal: spacing.xxl, paddingTop: spacing.xl, gap: spacing.xl },
   nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   iconButton: { width: 44, height: 44, borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
   navTitle: { alignItems: 'center' }, navEyebrow: { ...type.micro, color: colors.primary }, navHeading: { ...type.h3, color: colors.ink }, navSpacer: { width: 44 },
   intro: { gap: spacing.xs, paddingTop: spacing.xs }, introTitle: { ...type.h1, color: colors.ink }, introCopy: { ...type.body, color: colors.inkSoft },
+  workspace: { gap: spacing.lg },
+  workspaceDesktop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xl },
+  mainColumn: { flex: 1, gap: spacing.lg },
   formCard: { backgroundColor: colors.surface, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.line, padding: spacing.lg, gap: spacing.lg, ...shadow },
   divider: { height: 1, backgroundColor: colors.line, marginHorizontal: -spacing.lg },
   dateGroup: { gap: spacing.xs }, fieldLabel: { ...type.caption, color: colors.ink, textTransform: 'uppercase' },
   dateCard: { minHeight: 66, borderRadius: radii.md, borderWidth: 1.5, borderColor: colors.line, flexDirection: 'row', alignItems: 'center', padding: spacing.sm, gap: spacing.sm },
   dateIcon: { width: 42, height: 42, borderRadius: 13, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   dateCopy: { flex: 1 }, dateValue: { ...type.bodyStrong, color: colors.ink }, dateHint: { ...type.caption, color: colors.inkSoft },
-  note: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: radii.md, padding: spacing.md }, noteText: { ...type.caption, color: colors.primaryDark, flex: 1 },
   error: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xs, backgroundColor: colors.dangerSoft, borderWidth: 1, borderColor: colors.dangerLine, borderRadius: radii.sm, padding: spacing.sm }, errorText: { ...type.caption, color: colors.danger, flex: 1 },
-  footer: { ...type.caption, color: colors.inkSoft, textAlign: 'center', paddingHorizontal: spacing.lg },
+  guidance: { width: '100%', backgroundColor: colors.canvasLift, borderWidth: 1, borderColor: colors.line, borderRadius: radii.xl, padding: spacing.lg, gap: spacing.lg },
+  guidanceDesktop: { maxWidth: layout.rail, flexShrink: 0 },
+  guidanceHeading: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
+  guidanceIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  guidanceHeadingCopy: { flex: 1, gap: 2 }, guidanceTitle: { ...type.h3, color: colors.ink }, guidanceIntro: { ...type.caption, color: colors.inkSoft },
+  guidanceList: { gap: spacing.lg },
+  guidanceRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }, guidanceRowIcon: { width: 34, height: 34, borderRadius: 11, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  guidanceRowCopy: { flex: 1, gap: 3 }, guidanceRowTitle: { ...type.bodyStrong, color: colors.ink }, guidanceRowBody: { ...type.caption, color: colors.inkSoft },
   successCard: { backgroundColor: colors.surface, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.successLine, padding: spacing.lg, ...shadow },
+  successCardDesktop: { width: '100%', maxWidth: layout.readingMax, alignSelf: 'center', padding: spacing.xl },
   successHeading: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   successIcon: { width: 48, height: 48, borderRadius: 16, backgroundColor: colors.successSoft, borderWidth: 1, borderColor: colors.successLine, alignItems: 'center', justifyContent: 'center' },
   successCopy: { flex: 1, gap: 3 }, successTitle: { ...type.h2, color: colors.ink }, successMessage: { ...type.body, color: colors.inkSoft },
