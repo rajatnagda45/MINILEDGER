@@ -14,9 +14,10 @@ MiniLedger is a focused mobile lending tracker for money lent to friends. It com
 - Purposeful loading, empty, validation, error, and success states
 - User ownership checks on every protected loan operation
 - Exact money storage in integer paise
-- 19 automated tests for authentication, loans, ownership, malformed requests, dates, and summaries
+- Optional receipt photo per loan, with secure upload, private storage, and authenticated preview
+- 36 automated tests for authentication, loans, ownership, malformed requests, dates, summaries, and receipts
 
-Receipt upload is deliberately not included in this version. The required login, lending, repayment, and summary journey is complete and tested first.
+The required login, lending, repayment, and summary journey is complete and tested, and the optional receipt-photo bonus is implemented end to end (see [Receipts](#receipts)).
 
 ## Architecture
 
@@ -68,6 +69,12 @@ Captured from the running web build against the seeded PostgreSQL database, with
 | Login | Dashboard |
 | --- | --- |
 | ![MiniLedger mobile login](docs/screenshots/login-mobile.png) | ![MiniLedger mobile dashboard, single column](docs/screenshots/dashboard-mobile.png) |
+
+**Receipts**
+
+| Add-loan receipt section | Attached receipt on loan details |
+| --- | --- |
+| ![Optional receipt section on the add-loan form](docs/screenshots/add-loan-receipt.png) | ![Loan details showing an attached receipt with view, replace, and remove](docs/screenshots/loan-receipt-detail.png) |
 
 The narrow captures were taken at a 500px viewport (headless Chrome's minimum window width). The layout is single-column and free of horizontal overflow at that width; widths below 500px were not captured here and should be checked on a device or emulator before submission.
 
@@ -193,6 +200,9 @@ All protected endpoints require `Authorization: Bearer <token>`.
 | POST | `/api/loans` | Create a loan |
 | PATCH | `/api/loans/:id/repay` | Mark an owned loan repaid |
 | GET | `/api/summary` | Return server-calculated totals |
+| POST | `/api/loans/:id/receipt` | Attach or replace an owned loan's receipt (multipart `receipt`) |
+| GET | `/api/loans/:id/receipt` | Stream the owned receipt image (authenticated) |
+| DELETE | `/api/loans/:id/receipt` | Remove the owned loan's receipt |
 
 Example loan request:
 
@@ -206,15 +216,45 @@ Example loan request:
 
 Amounts are rupee numbers in JSON and integer paise in PostgreSQL. See the complete [API reference](docs/api.md).
 
+## Receipts
+
+Each loan can optionally carry one receipt photo.
+
+- **Formats and size:** JPEG or PNG only, up to 5 MB (`RECEIPT_MAX_BYTES`). The declared MIME type and filename are never trusted — the server sniffs the image's magic bytes and rejects anything else.
+- **Where files live:** binaries are written to a private directory (`RECEIPT_STORAGE_DIR`, default `backend/.receipts`) that is **never statically served** and is gitignored. Filenames are random server-generated keys (never the uploaded name), written with exclusive-create so nothing is overwritten. PostgreSQL stores only metadata (storage key, verified media type, byte size, timestamp) in a `receipts` table related one-to-one to the loan.
+- **Privacy and ownership:** every upload, download, and delete requires a valid JWT and verifies the loan belongs to the caller, so one user can never read or change another user's receipt. The image is served from an authenticated endpoint with `X-Content-Type-Options: nosniff` and `Cache-Control: private, no-store`, and is never returned as base64 inside JSON.
+- **Consistency:** storage and the database are not one transaction, so writes are ordered to stay safe — a new object is written first, metadata is persisted next (an orphaned object is deleted if that fails), and a previous receipt is only removed after a replacement is safely stored. Receipts never affect financial totals.
+- **Client:** the add-loan form has an optional Receipt section (choose from library, or camera on native); the loan detail screen shows a thumbnail with view/replace/remove. On web the image is fetched with the token and shown via an object URL; on native `Image` sends the auth header directly.
+
+### Environment
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `RECEIPT_STORAGE_DIR` | `.receipts` | Private directory for receipt binaries (relative to the backend process) |
+| `RECEIPT_MAX_BYTES` | `5242880` | Maximum accepted upload size in bytes |
+
+Run `npm run db:migrate` to apply the `add_receipts` migration before using the feature.
+
+### Manual test
+
+1. Sign in and open or create a loan.
+2. On the add-loan form, tap **Choose photo** and pick a JPEG or PNG; submit.
+3. Open the loan — the receipt thumbnail appears. Tap **View** to open it, **Replace** to swap it, or **Remove** to delete it.
+4. Confirm the summary totals are unchanged by attaching or removing a receipt.
+
+### S3 (future deployment, not implemented)
+
+`ReceiptStorage` is a small interface (`save`/`read`/`delete`). The local filesystem implementation is used today; a private-bucket Amazon S3 implementation can be dropped in without changing callers. It would use private object ACLs and short-lived signed URLs (or keep streaming through the authenticated endpoint) and must never expose permanent public URLs. This is an extension point only — S3 support is not currently built.
+
 ## Verification status
 
 Verified on 22 October 2026:
 
 - TypeScript passed across mobile, backend, and shared packages.
-- 19 automated tests passed across two test files.
+- 36 automated tests passed across three test files (auth, loans, and receipts).
 - Expo ESLint completed without warnings or errors.
 - Prisma migration applied successfully to PostgreSQL 16.
-- OTP issue/verification (`[DEV OTP]` log), authenticated loan listing, and server-calculated summary were exercised against the real PostgreSQL database.
+- OTP issue/verification (`[DEV OTP]` log), authenticated loan listing, server-calculated summary, and the full receipt lifecycle (upload, authenticated retrieval with byte-exact download, cross-user denial, deletion, and unchanged summary) were exercised against the real PostgreSQL database and local file storage.
 - Expo produced a successful web release bundle (`expo export --platform web`).
 - The web build was served and loaded in headless Chrome with a real session token; genuine screenshots of login, dashboard, and add-loan were captured at desktop (1440px) and narrow (500px) viewports — see [Screenshots](#screenshots).
 
@@ -229,7 +269,7 @@ No iOS simulator or connected physical device was available in the build environ
 - Request bodies are size-limited, security headers are enabled, and errors use a stable non-sensitive shape.
 - Full repayment is the only repayment model; partial repayment is intentionally out of scope.
 - OTP challenges are held in process memory, so they are not shared across multiple API instances.
-- Receipt upload and loan deletion are not implemented.
+- Receipt storage uses the local filesystem; a private-bucket S3 backend is an interface extension, not built yet. Only JPEG/PNG are accepted (e.g. iOS HEIC captures are rejected). Loan deletion is not implemented.
 - The npm advisory report includes transitive development-tool advisories in Expo/Prisma chains. Do not apply `npm audit fix --force` without testing their breaking major upgrades.
 
 ## Demo recording

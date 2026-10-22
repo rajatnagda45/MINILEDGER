@@ -130,3 +130,21 @@ Rules:
 
 The configured `APP_TIME_ZONE` defines today's calendar date; the default is `Asia/Kolkata`.
 
+
+## Receipts
+
+One optional receipt image per loan. All three endpoints require a valid JWT and verify that the loan belongs to the caller; another user's loan returns `404`.
+
+### POST `/api/loans/:id/receipt`
+
+`multipart/form-data` with a single `receipt` file (JPEG or PNG, up to `RECEIPT_MAX_BYTES`, default 5 MB). The server validates the image's magic bytes — the declared MIME type and filename are not trusted — generates the stored filename itself, and persists only metadata. Replaces any existing receipt. Returns `201` with the updated loan (`receiptAvailable: true` and a `receipt` object).
+
+Errors: `401` unauthenticated, `404` `LOAN_NOT_FOUND`, `413` `RECEIPT_TOO_LARGE`, `415` `RECEIPT_INVALID_TYPE`, `422` `RECEIPT_REQUIRED` (missing/empty file) or `VALIDATION_ERROR` (bad loan id).
+
+### GET `/api/loans/:id/receipt`
+
+Streams the raw image with its stored `Content-Type`, `X-Content-Type-Options: nosniff`, and `Cache-Control: private, no-store`. Returns `404` `RECEIPT_NOT_FOUND` when no receipt is attached. The image is never returned as base64 inside JSON.
+
+### DELETE `/api/loans/:id/receipt`
+
+Removes the metadata and deletes the stored object. Returns `204` on success, `404` `RECEIPT_NOT_FOUND` when none exists. Removing a receipt never changes financial totals.

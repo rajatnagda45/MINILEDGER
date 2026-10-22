@@ -12,13 +12,13 @@ Enter a phone number, request the code, show the six-digit OTP in the API termin
 
 Point to still-to-receive first, then total lent, repaid, and overdue. Show the loan filters and explain that every amount comes from the summary endpoint.
 
-## 1:00–1:30 — Add a loan
+## 1:00–1:30 — Add a loan with a receipt
 
-Add “Neha Kapoor”, ₹2,750, with a visible due date. Briefly trigger one validation message, correct it, save, and show the new entry without restarting.
+Add “Neha Kapoor”, ₹2,750, with a visible due date. Briefly trigger one validation message and correct it. In the optional Receipt section, choose a JPEG/PNG photo and show the thumbnail preview, then save and show the new entry without restarting.
 
-## 1:30–1:55 — Overdue emphasis
+## 1:30–1:55 — Overdue emphasis and receipt preview
 
-Open a seeded overdue entry. Call out the red rail, explicit badge, due-date wording, and matching overdue total. Explain that due today is not overdue.
+Open a seeded overdue entry. Call out the red rail, explicit badge, due-date wording, and matching overdue total (due today is not overdue). Open the loan with the receipt, tap View to show the full image, and mention it is served from an authenticated, ownership-checked endpoint — never public.
 
 ## 1:55–2:15 — Repayment
 
@@ -26,7 +26,7 @@ Tap Mark repaid, show the confirmation, confirm it, and point to the refreshed s
 
 ## 2:15–2:40 — Engineering
 
-Show the PostgreSQL/Prisma schema, integer-paise field, authenticated user-scoped query, and passing test command. Mention Expo, Express, TanStack Query, SecureStore, and the tested ownership boundary.
+Show the PostgreSQL/Prisma schema (loans + receipts metadata), integer-paise field, authenticated user-scoped query, and the passing test command (36 tests). Mention Expo, Express, TanStack Query, SecureStore, the tested ownership boundary, and that receipt bytes live in private storage while only metadata is in the database.
 
 ## 2:40–2:50 — Close
 

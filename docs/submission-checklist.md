@@ -13,11 +13,11 @@ Evidence recorded on 22 October 2026. “Manual action” means the repository c
 | Loan creation and repayment verified | Verified | Automated API suite and real PostgreSQL smoke workflow. |
 | Financial summaries verified | Verified | Integer-paise tests, invariant assertion, and real database summary before/after repayment. |
 | Overdue date boundaries verified | Verified | Yesterday, today, tomorrow, and repaid cases covered. |
-| Cross-user controls verified | Verified | Read, repayment, list, and summary isolation tests pass. Receipt access is not applicable because receipts are not implemented. |
+| Cross-user controls verified | Verified | Read, repayment, list, summary, and receipt isolation tests pass; cross-user receipt upload/download/delete return 404. |
 | Mobile network configuration reviewed | Verified | Environment-based base URL, iOS/Android/device table, timeout, bearer header, and 401 logout path documented. |
 | Loading, empty, error, success states reviewed | Verified | Code review plus lint/type/bundle gates; native visual behavior requires manual confirmation. |
 | Accessibility improvements checked | Verified in code | Roles, labels, selected/disabled/busy states, non-colour status text, separate targets, and live announcements. VoiceOver/TalkBack requires manual action. |
-| Automated tests executed | Verified | 19/19 tests passed. |
+| Automated tests executed | Verified | 36/36 tests passed across auth, loans, and receipts. |
 | TypeScript executed | Verified | All workspaces passed strict checking. |
 | Linting executed | Verified | Expo ESLint passed. |
 | Production bundles checked | Verified | iOS, Android, and web exports completed successfully. |
@@ -27,6 +27,6 @@ Evidence recorded on 22 October 2026. “Manual action” means the repository c
 | Final Git diff reviewed | Verified | Required before final push; recorded in final report. |
 | Demo script ready | Verified | `docs/demo-script.md`. |
 | Recording uploaded | Requires manual action | Record 2–3 minutes, upload, verify sharing in a private window, and add the genuine URL. |
-| Receipt upload | Not applicable/optional | Intentionally omitted to protect required-flow stability; documented throughout. |
+| Receipt upload | Verified | Implemented end to end: secure JPEG/PNG upload with signature validation and 5 MB limit, private filesystem storage with server-generated keys, authenticated ownership-scoped retrieval/deletion, 17 regression tests, and a real upload/preview/delete flow against PostgreSQL. S3 remains a documented extension. |
 | Native simulator/device visual QA | Requires manual action | Complete `docs/manual-smoke-test.md` on at least one target before recording. |
 
