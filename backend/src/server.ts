@@ -1,8 +1,11 @@
 import { PrismaClient } from '@prisma/client';
+import { config } from 'dotenv';
+import { resolve } from 'node:path';
 import { createApp } from './app.js';
 import { loadEnv } from './config/env.js';
 import { PrismaDataStore } from './data/prisma-store.js';
 
+config({ path: resolve(process.cwd(), '../.env') });
 const env = loadEnv();
 const prisma = new PrismaClient();
 const app = createApp({ env, store: new PrismaDataStore(prisma) });
