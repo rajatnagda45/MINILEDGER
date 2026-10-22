@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import VerifyScreen from '@/app/(auth)/verify';
 import { ApiError } from '@/lib/api';
 import { TestQueryProvider } from './test-utils';
@@ -11,6 +11,12 @@ jest.mock('expo-router', () => ({
 jest.mock('@/providers/auth-provider', () => ({ useAuth: () => ({ signIn: mockSignIn }) }));
 
 beforeEach(() => jest.clearAllMocks());
+
+async function flushQueryNotifications() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
 
 it('keeps verification disabled until six digits are entered', async () => {
   const screen = await render(<VerifyScreen />, { wrapper: TestQueryProvider });
@@ -32,9 +38,12 @@ it('submits pasted digits once and exposes an OTP API error', async () => {
 
   expect(mockSignIn).toHaveBeenCalledTimes(1);
   expect(mockSignIn).toHaveBeenCalledWith('+919876543210', '123456');
-  fail(new ApiError(401, 'OTP_INVALID', 'That code is incorrect.'));
+  await act(async () => {
+    fail(new ApiError(401, 'OTP_INVALID', 'That code is incorrect.'));
+  });
   expect(await screen.findByText('That code is incorrect.')).toBeTruthy();
   await waitFor(() => expect(screen.getByLabelText('Verify & open ledger')).not.toBeDisabled());
+  await flushQueryNotifications();
 });
 
 it('completes successful OTP authentication without showing an error', async () => {
@@ -44,5 +53,6 @@ it('completes successful OTP authentication without showing an error', async () 
   await fireEvent.press(screen.getByText('Verify & open ledger'));
   await waitFor(() => expect(mockSignIn).toHaveBeenCalledWith('+919876543210', '654321'));
   await waitFor(() => expect(screen.getByLabelText('Verify & open ledger')).not.toBeDisabled());
+  await flushQueryNotifications();
   expect(screen.queryByText('That code is incorrect.')).toBeNull();
 });

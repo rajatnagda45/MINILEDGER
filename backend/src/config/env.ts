@@ -12,6 +12,18 @@ const envSchema = z.object({
   // Receipts: a private directory (never statically served) and a max upload size.
   RECEIPT_STORAGE_DIR: z.string().default('.receipts'),
   RECEIPT_MAX_BYTES: z.coerce.number().int().positive().default(5 * 1024 * 1024),
+}).superRefine((env, context) => {
+  if (env.NODE_ENV !== 'production') return;
+
+  if (env.JWT_SECRET.startsWith('replace-with-')) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['JWT_SECRET'], message: 'Production JWT_SECRET must not use the example placeholder.' });
+  }
+  if (env.OTP_PEPPER.startsWith('replace-with-')) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['OTP_PEPPER'], message: 'Production OTP_PEPPER must not use the example placeholder.' });
+  }
+  if (env.MOBILE_ORIGIN.trim() === '*') {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['MOBILE_ORIGIN'], message: 'Production MOBILE_ORIGIN must be an explicit trusted origin.' });
+  }
 });
 
 export type Env = z.infer<typeof envSchema>;

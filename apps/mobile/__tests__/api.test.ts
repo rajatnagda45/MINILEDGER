@@ -3,6 +3,7 @@ import { api, ApiError, configureApi } from '@/lib/api';
 const originalFetch = global.fetch;
 
 afterEach(() => {
+  jest.useRealTimers();
   global.fetch = originalFetch;
   configureApi(null);
   jest.clearAllMocks();
@@ -22,6 +23,27 @@ it('forwards query cancellation to fetch without misreporting it as a timeout', 
 
   await expect(request).rejects.toMatchObject({ name: 'AbortError' });
   expect((global.fetch as jest.Mock).mock.calls[0][1].signal.aborted).toBe(true);
+});
+
+it('reports transport failures as network errors', async () => {
+  global.fetch = jest.fn().mockRejectedValue(new TypeError('Failed to fetch')) as jest.Mock;
+
+  await expect(api.loans()).rejects.toEqual(new ApiError(0, 'NETWORK_ERROR', 'Could not reach MiniLedger. Check your connection and API URL.'));
+});
+
+it('reports the internal request deadline as a timeout', async () => {
+  jest.useFakeTimers();
+  global.fetch = jest.fn((_url, init) => new Promise((_resolve, reject) => {
+    init?.signal?.addEventListener('abort', () => {
+      const error = new Error('timed out');
+      error.name = 'AbortError';
+      reject(error);
+    }, { once: true });
+  })) as jest.Mock;
+  const result = expect(api.loans()).rejects.toEqual(new ApiError(0, 'TIMEOUT', 'The server took too long to respond.'));
+
+  await jest.advanceTimersByTimeAsync(12_000);
+  await result;
 });
 
 it('uses the configured unauthorized handler for expired protected requests', async () => {
