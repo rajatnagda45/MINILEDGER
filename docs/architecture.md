@@ -49,6 +49,17 @@ React Hook Form and Zod provide immediate input guidance while the API repeats a
 
 Reusable tokens control colour, typography, spacing, radii, and elevation. A deep navy financial card establishes hierarchy; white neutral surfaces keep dense information calm. Every displayed amount uses exact Indian currency grouping without compact rounding. Overdue loans combine a red rail, icon, explicit “OVERDUE” badge, and date copy so meaning never depends on colour alone. Card navigation and repayment are separate sibling targets rather than nested controls. Native touch targets are at least roughly 44 points and controls expose roles, labels, selected/busy states, and live announcements where relevant.
 
+## Receipts
+
+Each loan can carry one optional receipt photo, implemented end to end.
+
+- **Selection and upload.** The add-loan form and loan-detail screen select a JPEG/PNG from the library (or camera on native) via `expo-image-picker`, then `POST /loans/:id/receipt` as `multipart/form-data`. The loan is created first; a failed receipt upload never discards it.
+- **Authorization.** Upload, retrieval, and deletion require a valid JWT and verify loan ownership via `findLoan(userId, …)` before any storage or metadata access, so one user can never reach another's receipt (cross-user requests return `404`).
+- **Validation.** The declared MIME type and filename are untrusted. `inspectImage` performs a bounded structural check (PNG `IHDR`/`IEND`, JPEG `SOI`/`SOF`/`EOI`), rejects truncated/malformed files, and bounds real pixel dimensions; multer enforces a 5 MB limit. Only JPEG and PNG are accepted.
+- **Storage split.** Bytes live on a private local filesystem (`RECEIPT_STORAGE_DIR`, `0700` dir / `0600` files, exclusive-create, server-generated random keys, outside any served path). PostgreSQL stores only metadata (`receipts`: storage key, verified media type, byte size, timestamp) one-to-one with the loan.
+- **Retrieval.** `GET /loans/:id/receipt` streams the bytes from an authenticated endpoint with `X-Content-Type-Options: nosniff` and `Cache-Control: private, no-store`; images are never base64-embedded in JSON. The mobile client loads them with request headers on native and a token-authenticated object URL on web (an expired session follows the normal sign-out flow).
+- **Replacement and deletion consistency.** The filesystem and database are not one transaction, so operations are ordered: a replacement writes the new object, persists metadata, then removes the old object; a deletion removes the file *before* its metadata so a failed file delete leaves the receipt intact and retryable. Cleanup failures (replace/rollback) are recorded in an `orphaned_objects` tombstone table and retried by `reconcileOrphans()` (run best-effort at startup) — an orphaned file is never silently lost. Concurrent delete/replace is safe because ownership is re-checked and the unique `loan_id` serializes metadata.
+
 ## Error handling
 
 Expected business errors use `AppError` with HTTP status, stable code, and user-safe message. Zod failures return 422 details. Unknown failures are logged without request secrets and return a generic 500 response. The app preserves add-loan form values after recoverable failures and exposes retry actions for read failures.
@@ -58,6 +69,6 @@ Expected business errors use `AppError` with HTTP status, stable code, and user-
 - Full repayments only; partial payments would require a transaction/payment ledger rather than mutating one status.
 - OTP storage is process-local and not suitable for horizontal scaling.
 - Lists are unpaginated because the assignment targets small personal ledgers.
-- Receipt upload is not present; adding it requires authenticated streaming/storage endpoints and mobile image selection.
-- Automated API tests use an in-memory store to remain isolated and deterministic. A real PostgreSQL smoke test verifies migration and persistence separately.
+- Receipt bytes use the local filesystem; a private-bucket Amazon S3 backend is a documented extension of the `ReceiptStorage` interface, not built. Only JPEG/PNG are accepted (iOS HEIC captures are rejected). Validation is a bounded structural check, not a full decode.
+- Automated API tests use an in-memory store to remain isolated and deterministic. A gated real-PostgreSQL integration test verifies concurrent repayment, and migration/persistence are verified separately.
 

@@ -15,7 +15,7 @@ MiniLedger is a focused mobile lending tracker for money lent to friends. It com
 - User ownership checks on every protected loan operation
 - Exact money storage in integer paise
 - Optional receipt photo per loan, with secure upload, private storage, and authenticated preview
-- 36 automated tests for authentication, loans, ownership, malformed requests, dates, summaries, and receipts
+- 66 automated tests covering authentication, OTP boundaries, JWT algorithm pinning, loans, ownership, dates, summaries, receipt validation and cleanup consistency, filesystem permissions, and a real-PostgreSQL concurrent-repayment integration test
 
 The required login, lending, repayment, and summary journey is complete and tested, and the optional receipt-photo bonus is implemented end to end (see [Receipts](#receipts)).
 
@@ -188,6 +188,18 @@ npx expo export --platform android
 npx expo export --platform web
 ```
 
+### What each command needs
+
+| Command | Requires | CI-safe |
+|---|---|---|
+| `npm run typecheck`, `npm run lint` | nothing | yes |
+| `npm test` | nothing for the default suite (in-memory store). The one real-PostgreSQL integration test runs only when `pg_isready` succeeds and is otherwise skipped (reported, not failed) | yes |
+| `npm run db:generate` | the root `.env` (no database connection) | yes |
+| `npm run db:migrate`, `db:deploy`, `db:seed`, `dev:backend` | a running PostgreSQL reachable at `DATABASE_URL` | no |
+| `npx expo export --platform …` | nothing (produces JS bundles) | yes |
+
+All database commands resolve `DATABASE_URL` from the root `.env` via `backend/prisma.config.ts`; there is no separate `backend/.env`.
+
 ## API overview
 
 All protected endpoints require `Authorization: Bearer <token>`.
@@ -222,10 +234,10 @@ Amounts are rupee numbers in JSON and integer paise in PostgreSQL. See the compl
 
 Each loan can optionally carry one receipt photo.
 
-- **Formats and size:** JPEG or PNG only, up to 5 MB (`RECEIPT_MAX_BYTES`). The declared MIME type and filename are never trusted — the server sniffs the image's magic bytes and rejects anything else.
-- **Where files live:** binaries are written to a private directory (`RECEIPT_STORAGE_DIR`, default `backend/.receipts`) that is **never statically served** and is gitignored. Filenames are random server-generated keys (never the uploaded name), written with exclusive-create so nothing is overwritten. PostgreSQL stores only metadata (storage key, verified media type, byte size, timestamp) in a `receipts` table related one-to-one to the loan.
-- **Privacy and ownership:** every upload, download, and delete requires a valid JWT and verifies the loan belongs to the caller, so one user can never read or change another user's receipt. The image is served from an authenticated endpoint with `X-Content-Type-Options: nosniff` and `Cache-Control: private, no-store`, and is never returned as base64 inside JSON.
-- **Consistency:** storage and the database are not one transaction, so writes are ordered to stay safe — a new object is written first, metadata is persisted next (an orphaned object is deleted if that fails), and a previous receipt is only removed after a replacement is safely stored. Receipts never affect financial totals.
+- **Formats and size:** JPEG or PNG only, up to 5 MB (`RECEIPT_MAX_BYTES`). The declared MIME type and filename are never trusted — the server performs a bounded structural inspection (PNG `IHDR`/`IEND`, JPEG `SOI`/`SOF`/`EOI`), rejects truncated or malformed files, and bounds the real pixel dimensions (≤12000 per side, ≤40 MP) to block absurd/decompression-bomb images. It does not re-encode the image.
+- **Where files live:** binaries are written to a private directory (`RECEIPT_STORAGE_DIR`, default `backend/.receipts`) created `0700` with files `0600` (on POSIX), **never statically served**, and gitignored. Filenames are random server-generated keys (never the uploaded name), written with exclusive-create (no overwrite, no symlink following). PostgreSQL stores only metadata (storage key, verified media type, byte size, timestamp) in a `receipts` table related one-to-one to the loan. The deployment account and volume must keep this directory private.
+- **Privacy and ownership:** every upload, download, and delete requires a valid JWT and verifies the loan belongs to the caller, so one user can never read or change another user's receipt (cross-user requests return `404`). The image is served from an authenticated endpoint with `X-Content-Type-Options: nosniff` and `Cache-Control: private, no-store`, and is never returned as base64 inside JSON.
+- **Consistency:** storage and the database are not one transaction, so operations are ordered to stay safe. A replacement writes the new object, persists metadata, then removes the old object; a **deletion removes the file before its metadata**, so a failed file delete leaves the receipt intact and the request can be retried — the API never reports success while a private file remains on disk. Genuine cleanup failures are recorded in an `orphaned_objects` tombstone and retried by `reconcileOrphans()` (run best-effort at startup), so an orphan is never silently lost. Receipts never affect financial totals.
 - **Client:** the add-loan form has an optional Receipt section (choose from library, or camera on native); the loan detail screen shows a thumbnail with view/replace/remove. On web the image is fetched with the token and shown via an object URL; on native `Image` sends the auth header directly.
 
 ### Environment
@@ -253,7 +265,7 @@ Run `npm run db:migrate` to apply the `add_receipts` migration before using the 
 Verified on 22 October 2026:
 
 - TypeScript passed across mobile, backend, and shared packages.
-- 36 automated tests passed across three test files (auth, loans, and receipts).
+- 66 automated tests passed across seven test files (auth, auth-security, loans, receipts, image inspection, storage permissions, and a real-PostgreSQL concurrency integration test).
 - Expo ESLint completed without warnings or errors.
 - Prisma migration applied successfully to PostgreSQL 16.
 - OTP issue/verification (`[DEV OTP]` log), authenticated loan listing, server-calculated summary, and the full receipt lifecycle (upload, authenticated retrieval with byte-exact download, cross-user denial, deletion, and unchanged summary) were exercised against the real PostgreSQL database and local file storage.
