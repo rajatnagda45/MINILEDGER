@@ -2,17 +2,21 @@ import cors from 'cors';
 import express, { type RequestHandler } from 'express';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
+import multer from 'multer';
 import type { Env } from './config/env.js';
 import type { DataStore } from './data/types.js';
 import { authenticate } from './middleware/authenticate.js';
 import { AuthService } from './modules/auth/auth.js';
 import { OtpService } from './modules/auth/otp-service.js';
 import { LoanService } from './modules/loans/loan-service.js';
+import { ReceiptService } from './modules/receipts/receipt-service.js';
+import { LocalReceiptStorage, type ReceiptStorage } from './modules/receipts/storage.js';
 import { errorHandler, notFound } from './utils/errors.js';
 
 interface AppOptions {
   env: Env;
   store: DataStore;
+  storage?: ReceiptStorage;
   now?: () => Date;
   onOtpIssued?: (phoneNumber: string, otp: string) => void;
   disableRateLimit?: boolean;
@@ -37,6 +41,9 @@ export function createApp(options: AppOptions) {
   );
   const auth = new AuthService(options.store, otp, options.env);
   const loans = new LoanService(options.store, options.env.APP_TIME_ZONE, options.now);
+  const storage = options.storage ?? new LocalReceiptStorage(options.env.RECEIPT_STORAGE_DIR);
+  const receipts = new ReceiptService(options.store, storage);
+  const uploadReceipt = multer({ storage: multer.memoryStorage(), limits: { fileSize: options.env.RECEIPT_MAX_BYTES, files: 1 } }).single('receipt');
   const requireAuth = authenticate(auth);
 
   app.disable('x-powered-by');
@@ -70,6 +77,24 @@ export function createApp(options: AppOptions) {
   }));
   app.get('/api/summary', requireAuth, asyncRoute(async (request, response) => {
     response.json(await loans.summary(request.auth!.userId));
+  }));
+
+  app.post('/api/loans/:id/receipt', requireAuth, uploadReceipt, asyncRoute(async (request, response) => {
+    const loanId = routeId(request.params.id!);
+    await receipts.upload(request.auth!.userId, loanId, request.file);
+    response.status(201).json({ loan: await loans.get(request.auth!.userId, loanId) });
+  }));
+  app.get('/api/loans/:id/receipt', requireAuth, asyncRoute(async (request, response) => {
+    const { receipt, bytes } = await receipts.get(request.auth!.userId, routeId(request.params.id!));
+    response.setHeader('Content-Type', receipt.mimeType);
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    response.setHeader('Content-Disposition', 'inline');
+    response.setHeader('Cache-Control', 'private, no-store');
+    response.send(bytes);
+  }));
+  app.delete('/api/loans/:id/receipt', requireAuth, asyncRoute(async (request, response) => {
+    await receipts.remove(request.auth!.userId, routeId(request.params.id!));
+    response.status(204).send();
   }));
 
   app.use(notFound);

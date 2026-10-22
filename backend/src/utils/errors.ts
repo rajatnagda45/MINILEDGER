@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
+import { MulterError } from 'multer';
 import { ZodError } from 'zod';
 
 export class AppError extends Error {
@@ -27,6 +28,16 @@ export const errorHandler: ErrorRequestHandler = (error, _request, response, _ne
   if (isMalformedJson(error)) {
     response.status(400).json({
       error: { code: 'MALFORMED_JSON', message: 'The request body contains invalid JSON.' },
+    });
+    return;
+  }
+  if (error instanceof MulterError) {
+    const tooLarge = error.code === 'LIMIT_FILE_SIZE';
+    response.status(tooLarge ? 413 : 400).json({
+      error: {
+        code: tooLarge ? 'RECEIPT_TOO_LARGE' : 'RECEIPT_UPLOAD_ERROR',
+        message: tooLarge ? 'The receipt image exceeds the maximum allowed size.' : 'The receipt upload could not be processed.',
+      },
     });
     return;
   }
