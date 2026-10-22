@@ -1,6 +1,6 @@
 import type { Express } from 'express';
 import request from 'supertest';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/app.js';
 import type { Env } from '../src/config/env.js';
 import { MemoryStore } from './memory-store.js';
@@ -34,6 +34,8 @@ describe('MiniLedger API', () => {
       disableRateLimit: true,
     });
   });
+
+  afterEach(() => vi.restoreAllMocks());
 
   async function signIn(phoneNumber = '+919876543210') {
     await request(app).post('/api/auth/send-otp').send({ phoneNumber }).expect(202);
@@ -80,6 +82,13 @@ describe('MiniLedger API', () => {
       await request(app).post('/api/auth/verify-otp').send({ phoneNumber: secondPhone, otp: secondOtp }).expect(200);
       expect((await request(app).post('/api/auth/verify-otp').send({ phoneNumber: secondPhone, otp: secondOtp }).expect(400)).body.error.code).toBe('OTP_INVALID');
     });
+
+    it('does not print development OTPs in production mode', async () => {
+      const logger = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+      const productionApp = createApp({ env: { ...env, NODE_ENV: 'production' }, store });
+      await request(productionApp).post('/api/auth/send-otp').send({ phoneNumber: '+919876543210' }).expect(202);
+      expect(logger).not.toHaveBeenCalled();
+    });
   });
 
   describe('loans and ownership', () => {
@@ -119,6 +128,20 @@ describe('MiniLedger API', () => {
 
     it('rejects protected requests without authentication', async () => {
       expect((await request(app).get('/api/loans').expect(401)).body.error.code).toBe('UNAUTHENTICATED');
+    });
+
+    it('returns safe client errors for malformed JSON and loan IDs', async () => {
+      const malformed = await request(app)
+        .post('/api/auth/send-otp')
+        .set('Content-Type', 'application/json')
+        .send('{"phoneNumber":')
+        .expect(400);
+      expect(malformed.body.error).toEqual({ code: 'MALFORMED_JSON', message: 'The request body contains invalid JSON.' });
+
+      const token = await signIn();
+      const invalidId = await request(app).get('/api/loans/not-a-uuid').set('Authorization', `Bearer ${token}`).expect(422);
+      expect(invalidId.body.error.code).toBe('VALIDATION_ERROR');
+      await request(app).patch('/api/loans/not-a-uuid/repay').set('Authorization', `Bearer ${token}`).expect(422);
     });
   });
 

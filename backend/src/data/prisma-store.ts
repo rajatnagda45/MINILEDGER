@@ -56,13 +56,16 @@ export class PrismaDataStore implements DataStore {
 
   async repayLoan(userId: string, loanId: string, repaidAt: Date): Promise<LoanRecord | 'ALREADY_REPAID' | null> {
     return this.prisma.$transaction(async (transaction) => {
+      const update = await transaction.loan.updateMany({
+        where: { id: loanId, userId, status: 'OUTSTANDING' },
+        data: { status: 'REPAID', repaidAt },
+      });
+      if (update.count === 1) {
+        return mapLoan(await transaction.loan.findUniqueOrThrow({ where: { id: loanId } }));
+      }
       const existing = await transaction.loan.findFirst({ where: { id: loanId, userId } });
       if (!existing) return null;
-      if (existing.status === 'REPAID') return 'ALREADY_REPAID';
-      return mapLoan(await transaction.loan.update({
-        where: { id: loanId },
-        data: { status: 'REPAID', repaidAt },
-      }));
+      return 'ALREADY_REPAID';
     });
   }
 }

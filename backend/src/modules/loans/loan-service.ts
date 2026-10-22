@@ -12,6 +12,7 @@ const createLoanSchema = z.object({
 }).strict();
 
 const statusSchema = z.enum(['OUTSTANDING', 'REPAID']);
+const loanIdSchema = z.string().uuid('Loan ID must be a valid UUID.');
 
 export class LoanService {
   constructor(
@@ -40,13 +41,15 @@ export class LoanService {
   }
 
   async get(userId: string, loanId: string): Promise<Loan> {
-    const loan = await this.store.findLoan(userId, loanId);
+    const id = loanIdSchema.parse(loanId);
+    const loan = await this.store.findLoan(userId, id);
     if (!loan) throw new AppError(404, 'LOAN_NOT_FOUND', 'Loan not found.');
     return this.serialize(loan);
   }
 
   async repay(userId: string, loanId: string): Promise<Loan> {
-    const result = await this.store.repayLoan(userId, loanId, this.now());
+    const id = loanIdSchema.parse(loanId);
+    const result = await this.store.repayLoan(userId, id, this.now());
     if (!result) throw new AppError(404, 'LOAN_NOT_FOUND', 'Loan not found.');
     if (result === 'ALREADY_REPAID') throw new AppError(409, 'LOAN_ALREADY_REPAID', 'This loan is already marked as repaid.');
     return this.serialize(result);

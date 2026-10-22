@@ -15,6 +15,7 @@ describe('calendar date rules', () => {
   it('only treats outstanding dates before today as overdue', () => {
     expect(isOverdue('2026-10-21', 'OUTSTANDING', '2026-10-22')).toBe(true);
     expect(isOverdue('2026-10-22', 'OUTSTANDING', '2026-10-22')).toBe(false);
+    expect(isOverdue('2026-10-23', 'OUTSTANDING', '2026-10-22')).toBe(false);
     expect(isOverdue('2026-10-21', 'REPAID', '2026-10-22')).toBe(false);
   });
 });

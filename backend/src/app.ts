@@ -30,7 +30,9 @@ export function createApp(options: AppOptions) {
   const app = express();
   const otp = new OtpService(
     options.env.OTP_PEPPER,
-    options.onOtpIssued ?? ((phone, code) => console.info(`[DEV OTP] ${phone}: ${code}`)),
+    options.onOtpIssued ?? (options.env.NODE_ENV === 'production'
+      ? () => undefined
+      : (phone, code) => console.info(`[DEV OTP] ${phone}: ${code}`)),
     options.now ? () => options.now!().valueOf() : Date.now,
   );
   const auth = new AuthService(options.store, otp, options.env);
