@@ -1,8 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { AppError } from '../../utils/errors.js';
 import type { ReceiptMimeType } from './image.js';
+
+// Least-privilege modes. POSIX permission bits are meaningful on Unix; on
+// Windows they are advisory, so mode assertions/enforcement are skipped there.
+const DIR_MODE = 0o700;
+const FILE_MODE = 0o600;
+const POSIX = process.platform !== 'win32';
 
 /**
  * Storage abstraction for receipt binaries. The database only ever holds
@@ -42,11 +48,21 @@ export class LocalReceiptStorage implements ReceiptStorage {
     return full;
   }
 
+  private async ensureDir(): Promise<void> {
+    await mkdir(this.baseDir, { recursive: true, mode: DIR_MODE });
+    // mode on mkdir only applies when creating; tighten an existing looser dir.
+    if (POSIX) await chmod(this.baseDir, DIR_MODE);
+  }
+
   async save(bytes: Buffer, mimeType: ReceiptMimeType): Promise<string> {
-    await mkdir(this.baseDir, { recursive: true });
+    await this.ensureDir();
     const storageKey = `${randomUUID()}.${EXTENSIONS[mimeType]}`;
-    // 'wx' fails if the path already exists — no accidental overwrites.
-    await writeFile(this.resolveKey(storageKey), bytes, { flag: 'wx' });
+    const full = this.resolveKey(storageKey);
+    // 'wx' (O_EXCL) fails if the path already exists and does not follow a
+    // symlink at that path — no accidental overwrites or symlink following.
+    // `mode` makes the new file owner-only (0600) on creation.
+    await writeFile(full, bytes, { flag: 'wx', mode: FILE_MODE });
+    if (POSIX) await chmod(full, FILE_MODE);
     return storageKey;
   }
 
