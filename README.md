@@ -55,17 +55,21 @@ Motion is restrained and purposeful (`components/fade-in-view.tsx`): a short fad
 
 ## Screenshots
 
-Captured from the running web build against the seeded PostgreSQL database on 22 October 2026.
+Captured from the running web build against the seeded PostgreSQL database, with real session data.
 
-| Desktop login | Desktop dashboard |
-|---|---|
-| ![Desktop login](docs/screenshots/login-desktop.png) | ![Desktop dashboard](docs/screenshots/dashboard-desktop.png) |
+**Desktop — 1440px**
 
-| Mobile login | Mobile dashboard | Add loan |
-|---|---|---|
-| ![Mobile login](docs/screenshots/login-mobile.png) | ![Mobile dashboard](docs/screenshots/dashboard-mobile.png) | ![Add loan](docs/screenshots/add-loan-desktop.png) |
+| Login | Dashboard | Add loan |
+| --- | --- | --- |
+| ![MiniLedger desktop login, two-column split](docs/screenshots/login-desktop.png) | ![MiniLedger desktop dashboard with summary sidebar and loan list](docs/screenshots/dashboard-desktop.png) | ![MiniLedger add-loan form on desktop](docs/screenshots/add-loan-desktop.png) |
 
-The narrow (mobile) captures were taken at a 500px viewport, which is headless Chrome's minimum window width; the single-column layout is identical at smaller phone widths.
+**Mobile — narrow single column**
+
+| Login | Dashboard |
+| --- | --- |
+| ![MiniLedger mobile login](docs/screenshots/login-mobile.png) | ![MiniLedger mobile dashboard, single column](docs/screenshots/dashboard-mobile.png) |
+
+The narrow captures were taken at a 500px viewport (headless Chrome's minimum window width). The layout is single-column and free of horizontal overflow at that width; widths below 500px were not captured here and should be checked on a device or emulator before submission.
 
 ## Technology
 
@@ -214,7 +218,7 @@ Verified on 22 October 2026:
 - Expo produced a successful web release bundle (`expo export --platform web`).
 - The web build was served and loaded in headless Chrome with a real session token; genuine screenshots of login, dashboard, and add-loan were captured at desktop (1440px) and narrow (500px) viewports — see [Screenshots](#screenshots).
 
-No iOS simulator or connected physical device was available in the build environment, so native touch interaction and iOS/Android visual QA still need the short manual pass in [docs/manual-smoke-test.md](docs/manual-smoke-test.md). The desktop/mobile web visuals are evidenced by the captured screenshots; native-only rendering is not claimed from them. No screenshots or device-test claims are fabricated.
+No iOS simulator or connected physical device was available in the build environment, so native touch interaction and iOS/Android visual QA still need the short manual pass in [docs/manual-smoke-test.md](docs/manual-smoke-test.md). Phone widths below 500px were not visually captured (headless Chrome clamps its window to ~500px), so the ~360–390px layout is covered by code review rather than a screenshot. The desktop/mobile web visuals are evidenced by the captured screenshots; native-only rendering is not claimed from them. No screenshots or device-test claims are fabricated.
 
 ## Security and limits
 
