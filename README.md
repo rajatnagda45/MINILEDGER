@@ -15,7 +15,7 @@ MiniLedger is a focused mobile lending tracker for money lent to friends. It com
 - User ownership checks on every protected loan operation
 - Exact money storage in integer paise
 - Optional receipt photo per loan, with secure upload, private storage, and authenticated preview
-- 93 automated tests: 25 mobile component/integration tests plus 68 backend tests covering authentication, OTP boundaries, JWT algorithm pinning, loans, ownership, dates, summaries, receipt validation and cleanup consistency, deterministic receipt concurrency, filesystem permissions, and a real-PostgreSQL concurrent-repayment integration test
+- 97 automated tests: 27 mobile component/integration tests plus 70 backend tests covering authentication, production configuration, OTP boundaries, JWT algorithm pinning, loans, ownership, dates, summaries, receipt validation and cleanup consistency, deterministic receipt concurrency, filesystem permissions, request failure classification, and a real-PostgreSQL concurrent-repayment integration test
 
 The required login, lending, repayment, and summary journey is complete and tested, and the optional receipt-photo bonus is implemented end to end (see [Receipts](#receipts)).
 
@@ -263,10 +263,12 @@ Run `npm run db:migrate` to apply all committed migrations before using the feat
 
 ## Verification status
 
+The latest automatic, native-runtime, and developer-action gates are separated in [docs/release-candidate-checklist.md](docs/release-candidate-checklist.md).
+
 Verified on 23 October 2026:
 
 - TypeScript passed across mobile, backend, and shared packages.
-- 93 automated tests passed across 17 test files: 25 mobile tests covering auth, web/native token storage, state rendering, forms, duplicate submission, query refresh, receipts, cancellation and accessibility cues; plus 68 backend tests including a real-PostgreSQL concurrency integration test.
+- 97 automated tests passed across 18 test files: 27 mobile tests covering auth, web/native token storage, state rendering, forms, duplicate submission, query refresh, receipts, cancellation/network/timeout handling and accessibility cues; plus 70 backend tests including hardened production configuration and a real-PostgreSQL concurrency integration test.
 - Expo ESLint completed without warnings or errors.
 - Prisma generation and schema validation passed, and all three migrations are applied to PostgreSQL 16.
 - OTP issue/verification (`[DEV OTP]` log), authenticated loan listing, server-calculated summary, and the full receipt lifecycle (upload, authenticated retrieval with byte-exact download, cross-user denial, deletion, and unchanged summary) were exercised against the real PostgreSQL database and local file storage.
@@ -280,12 +282,13 @@ No iOS simulator or connected physical device was available in the build environ
 - Loan access always includes the authenticated `userId` in the data query.
 - OTPs are cryptographically generated, hashed with a pepper, time-limited, attempt-limited, cooldown-protected, and one-time use.
 - OTP values are printed only outside production mode; production configuration never uses the development logger.
+- Production startup rejects the committed example secrets and wildcard `MOBILE_ORIGIN`; deployment must provide distinct secrets and an explicit trusted web origin.
 - JWTs are issuer/audience checked; secrets are environment-only.
 - Request bodies are size-limited, security headers are enabled, and errors use a stable non-sensitive shape.
 - Full repayment is the only repayment model; partial repayment is intentionally out of scope.
 - OTP challenges are held in process memory, so they are not shared across multiple API instances.
 - Receipt storage uses the local filesystem; a private-bucket S3 backend is an interface extension, not built yet. Only JPEG/PNG are accepted (e.g. iOS HEIC captures are rejected). Loan deletion is not implemented.
-- The current npm advisory report contains unresolved transitive toolchain advisories in Expo/Metro/Jest/Prisma chains. npm offers only breaking major-version changes for the remaining paths; do not apply `npm audit fix --force` without a planned Expo/Prisma upgrade and full native regression pass.
+- The current npm advisory report contains 52 affected package nodes (49 high, 3 moderate, 0 critical), primarily in Expo/Metro/Jest/Prisma toolchains; the Router decoding chain is the material client-runtime path. Supported fixes require coordinated major upgrades, so do not apply `npm audit fix --force` without a planned Expo/React Native, Router, Prisma, and Jest migration plus full native regression testing.
 
 ## Demo recording
 
