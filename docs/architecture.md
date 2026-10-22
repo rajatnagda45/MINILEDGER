@@ -37,7 +37,7 @@ totalLent = totalRepaid + outstandingAmount
 
 ## Repayment lifecycle
 
-The app requires confirmation, sends `PATCH /loans/:id/repay`, and disables the active action. The data store checks ownership and current status in a transaction, sets `REPAID` plus `repaidAt`, and rejects a repeated transition consistently. On success the app invalidates loan-list, loan-detail, and summary queries. The next server responses remove overdue styling and move the amount between outstanding and repaid totals.
+The app requires confirmation, sends `PATCH /loans/:id/repay`, and disables the active action. In one transaction the data store conditionally updates only an owned `OUTSTANDING` row, preventing two concurrent requests from both performing the transition. Missing and already-repaid states are then distinguished consistently. On success the app invalidates loan-list, loan-detail, and summary queries. The next server responses remove overdue styling and move the amount between outstanding and repaid totals.
 
 ## Frontend data flow
 
@@ -47,7 +47,7 @@ React Hook Form and Zod provide immediate input guidance while the API repeats a
 
 ## UI system
 
-Reusable tokens control colour, typography, spacing, radii, and elevation. A deep navy financial card establishes hierarchy; white neutral surfaces keep dense information calm. Overdue loans combine a red rail, icon, explicit “OVERDUE” badge, and date copy so meaning never depends on colour alone. Native touch targets are at least roughly 44 points and controls expose accessibility roles and labels.
+Reusable tokens control colour, typography, spacing, radii, and elevation. A deep navy financial card establishes hierarchy; white neutral surfaces keep dense information calm. Every displayed amount uses exact Indian currency grouping without compact rounding. Overdue loans combine a red rail, icon, explicit “OVERDUE” badge, and date copy so meaning never depends on colour alone. Card navigation and repayment are separate sibling targets rather than nested controls. Native touch targets are at least roughly 44 points and controls expose roles, labels, selected/busy states, and live announcements where relevant.
 
 ## Error handling
 

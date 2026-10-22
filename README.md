@@ -14,7 +14,7 @@ MiniLedger is a focused mobile lending tracker for money lent to friends. It com
 - Purposeful loading, empty, validation, error, and success states
 - User ownership checks on every protected loan operation
 - Exact money storage in integer paise
-- 17 automated tests for authentication, loans, ownership, dates, and summaries
+- 19 automated tests for authentication, loans, ownership, malformed requests, dates, and summaries
 
 Receipt upload is deliberately not included in this version. The required login, lending, repayment, and summary journey is complete and tested first.
 
@@ -131,6 +131,7 @@ The code expires after five minutes, has a 30-second resend cooldown, permits fi
 ```bash
 npm run typecheck       # all workspaces
 npm test                # backend automated tests
+npm run lint            # Expo ESLint rules
 npm run db:generate     # generate Prisma client
 npm run db:migrate      # create/apply a development migration
 npm run db:seed         # add demonstration records
@@ -179,7 +180,8 @@ Amounts are rupee numbers in JSON and integer paise in PostgreSQL. See the compl
 Verified on 22 October 2026:
 
 - TypeScript passed across mobile, backend, and shared packages.
-- 17 automated tests passed across two test files.
+- 19 automated tests passed across two test files.
+- Expo ESLint completed without warnings or errors.
 - Prisma migration applied successfully to PostgreSQL 16.
 - OTP issue/verification, authenticated loan creation, overdue summary, repayment, and refreshed summary were exercised against the real database.
 - Expo produced successful iOS, Android, and web release bundles.
@@ -190,6 +192,7 @@ No iOS simulator or connected physical device was available in the build environ
 
 - Loan access always includes the authenticated `userId` in the data query.
 - OTPs are cryptographically generated, hashed with a pepper, time-limited, attempt-limited, cooldown-protected, and one-time use.
+- OTP values are printed only outside production mode; production configuration never uses the development logger.
 - JWTs are issuer/audience checked; secrets are environment-only.
 - Request bodies are size-limited, security headers are enabled, and errors use a stable non-sensitive shape.
 - Full repayment is the only repayment model; partial repayment is intentionally out of scope.

@@ -34,7 +34,7 @@ Only an outstanding loan with a due date strictly earlier than the current date 
 
 ## What happens on repayment?
 
-The data store verifies ownership and outstanding status, then updates the status and timestamp in a transaction. The app invalidates list, detail, and summary queries, so the server immediately moves the amount from outstanding to repaid.
+The data store performs a conditional update on the owned loan only while its status is `OUTSTANDING`, inside a transaction. That makes concurrent repayment attempts safe; only one transition can succeed. The app invalidates list, detail, and summary queries, so the server immediately moves the amount from outstanding to repaid.
 
 ## How does TanStack Query keep the dashboard synchronized?
 
@@ -46,7 +46,7 @@ The client aborts requests after 12 seconds and converts network, timeout, authe
 
 ## How is the API tested?
 
-Supertest exercises the real Express middleware and routes. A deterministic in-memory implementation isolates tests from developer databases. Tests cover OTP issue, wrong/expired/reused codes, validation, authentication, ownership, repayment, user isolation, exact totals, overdue rules, and the due-today boundary. A separate PostgreSQL smoke test proves migrations and persistence.
+Supertest exercises the real Express middleware and routes. A deterministic in-memory implementation isolates tests from developer databases. Nineteen tests cover OTP issue, wrong/expired/reused codes, production logging, malformed JSON and IDs, validation, authentication, ownership, repayment, user isolation, exact totals, and yesterday/today/tomorrow overdue boundaries. A separate PostgreSQL smoke test proves migrations and persistence.
 
 ## How would receipt uploads be secured?
 

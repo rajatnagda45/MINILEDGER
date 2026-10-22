@@ -16,7 +16,7 @@ All responses are JSON. Protected routes require a JWT in `Authorization: Bearer
 }
 ```
 
-Expected codes include `VALIDATION_ERROR`, `UNAUTHENTICATED`, `SESSION_EXPIRED`, `OTP_INVALID`, `OTP_EXPIRED`, `OTP_COOLDOWN`, `OTP_RATE_LIMIT`, `LOAN_NOT_FOUND`, and `LOAN_ALREADY_REPAID`.
+Expected codes include `VALIDATION_ERROR`, `MALFORMED_JSON`, `UNAUTHENTICATED`, `SESSION_EXPIRED`, `OTP_INVALID`, `OTP_EXPIRED`, `OTP_COOLDOWN`, `OTP_RATE_LIMIT`, `LOAN_NOT_FOUND`, and `LOAN_ALREADY_REPAID`. Malformed JSON returns a safe `400`; invalid loan UUIDs return `422` before reaching Prisma.
 
 ## Health
 
