@@ -1,0 +1,14 @@
+node_modules/
+.expo/
+.env
+.env.*
+!.env.example
+dist/
+coverage/
+uploads/
+*.log
+.DS_Store
+apps/mobile/.expo/
+apps/mobile/web-build/
+backend/prisma/dev.db*
+
