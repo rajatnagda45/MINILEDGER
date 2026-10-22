@@ -7,6 +7,7 @@ import type { Env } from '../src/config/env.js';
 import type { ReceiptInput } from '../src/data/types.js';
 import { ReceiptService } from '../src/modules/receipts/receipt-service.js';
 import type { ReceiptStorage } from '../src/modules/receipts/storage.js';
+import { NOT_AN_IMAGE, TRUNCATED_JPEG, TRUNCATED_PNG, VALID_JPEG, VALID_PNG, oversizedPng } from './fixtures.js';
 import { MemoryStore } from './memory-store.js';
 
 const env: Env = {
@@ -63,9 +64,8 @@ class FailingStore extends MemoryStore {
   }
 }
 
-const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(64, 7)]);
-const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(64, 7)]);
-const NOT_AN_IMAGE = Buffer.from('<html>definitely not an image</html>');
+const PNG = VALID_PNG;
+const JPEG = VALID_JPEG;
 
 function binaryParser(res: request.Response, callback: (err: Error | null, body: Buffer) => void) {
   const chunks: Buffer[] = [];
@@ -139,6 +139,21 @@ describe('receipts', () => {
     const loan = await createLoan(token);
     const res = await upload(token, loan.id, NOT_AN_IMAGE, 'receipt.png', 'image/png').expect(415);
     expect(res.body.error.code).toBe('RECEIPT_INVALID_TYPE');
+    expect(storage.saved).toHaveLength(0);
+  });
+
+  it('rejects a truncated image even with a valid signature', async () => {
+    const token = await signIn();
+    const loan = await createLoan(token);
+    expect((await upload(token, loan.id, TRUNCATED_PNG).expect(422)).body.error.code).toBe('RECEIPT_INVALID_IMAGE');
+    expect((await upload(token, loan.id, TRUNCATED_JPEG, 'r.jpg', 'image/jpeg').expect(422)).body.error.code).toBe('RECEIPT_INVALID_IMAGE');
+    expect(storage.saved).toHaveLength(0);
+  });
+
+  it('rejects an image with excessive declared dimensions', async () => {
+    const token = await signIn();
+    const loan = await createLoan(token);
+    expect((await upload(token, loan.id, oversizedPng()).expect(422)).body.error.code).toBe('RECEIPT_INVALID_IMAGE');
     expect(storage.saved).toHaveLength(0);
   });
 

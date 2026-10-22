@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { DataStore, ReceiptRecord } from '../../data/types.js';
 import { AppError } from '../../utils/errors.js';
-import { detectImageType } from './image.js';
+import { inspectImage } from './image.js';
 import type { ReceiptStorage } from './storage.js';
 
 const loanIdSchema = z.string().uuid('Loan ID must be a valid UUID.');
@@ -36,11 +36,18 @@ export class ReceiptService {
     if (!file || file.size === 0 || file.buffer.length === 0) {
       throw new AppError(422, 'RECEIPT_REQUIRED', 'Attach a JPEG or PNG image in the "receipt" field.');
     }
-    // The declared MIME type and filename are untrusted — verify the bytes.
-    const mimeType = detectImageType(file.buffer);
-    if (!mimeType) {
-      throw new AppError(415, 'RECEIPT_INVALID_TYPE', 'Only JPEG or PNG images are supported.');
+    // The declared MIME type and filename are untrusted — inspect the bytes.
+    const inspection = inspectImage(file.buffer);
+    if (!inspection.ok) {
+      if (inspection.code === 'UNSUPPORTED') {
+        throw new AppError(415, 'RECEIPT_INVALID_TYPE', 'Only JPEG or PNG images are supported.');
+      }
+      if (inspection.code === 'DIMENSIONS') {
+        throw new AppError(422, 'RECEIPT_INVALID_IMAGE', 'The image dimensions are outside the supported range.');
+      }
+      throw new AppError(422, 'RECEIPT_INVALID_IMAGE', 'The image is truncated or malformed.');
     }
+    const { mimeType } = inspection;
 
     const storageKey = await this.storage.save(file.buffer, mimeType);
     let result;
