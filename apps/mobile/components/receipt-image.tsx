@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Platform, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, type } from '@/constants/theme';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 
-type Status = 'loading' | 'ready' | 'error';
+type Status = 'loading' | 'ready' | 'error' | 'missing';
 
 /**
  * Renders a receipt from the authenticated endpoint. The image is private, so
@@ -23,22 +23,23 @@ export function ReceiptImage({ loanId, token, style, resizeMode = 'cover' }: { l
     setStatus('loading');
     (async () => {
       try {
-        const response = await fetch(api.receiptEndpoint(loanId), { headers: api.authHeaders() });
-        if (!response.ok) throw new Error('failed');
-        objectUrl = URL.createObjectURL(await response.blob());
+        // Goes through the API client: a 401 triggers the app's sign-out flow
+        // rather than silently showing a generic error.
+        objectUrl = URL.createObjectURL(await api.fetchReceiptBlob(loanId));
         if (active) { setUri(objectUrl); setStatus('ready'); }
-      } catch {
-        if (active) setStatus('error');
+      } catch (error) {
+        if (!active) return;
+        setStatus(error instanceof ApiError && error.code === 'RECEIPT_NOT_FOUND' ? 'missing' : 'error');
       }
     })();
     return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [loanId, token]);
 
-  if (status === 'error') {
+  if (status === 'error' || status === 'missing') {
     return (
       <View style={[styles.fallback, style]}>
-        <Ionicons name="image-outline" size={22} color={colors.muted} />
-        <Text style={styles.fallbackText}>Preview unavailable</Text>
+        <Ionicons name={status === 'missing' ? 'image-outline' : 'cloud-offline-outline'} size={22} color={colors.muted} />
+        <Text style={styles.fallbackText}>{status === 'missing' ? 'No receipt' : 'Couldn’t load preview'}</Text>
       </View>
     );
   }

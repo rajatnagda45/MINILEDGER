@@ -81,5 +81,29 @@ export const api = {
   // Full URL + auth header for retrieving a receipt image (see ReceiptImage).
   receiptEndpoint: (loanId: string) => `${API_URL}/loans/${loanId}/receipt`,
   authHeaders: () => (token ? { Authorization: `Bearer ${token}` } : {}),
+  // Fetch a receipt image as a Blob (web). Shares the client's 401 handling, so
+  // an expired session follows the app's normal sign-out flow instead of
+  // surfacing as a generic preview error.
+  fetchReceiptBlob: async (loanId: string): Promise<Blob> => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12_000);
+    try {
+      const response = await fetch(`${API_URL}/loans/${loanId}/receipt`, {
+        headers: { Accept: 'image/*', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        if (response.status === 401 && token) onUnauthorized?.();
+        throw new ApiError(response.status, response.status === 404 ? 'RECEIPT_NOT_FOUND' : 'REQUEST_FAILED', 'Could not load the receipt.');
+      }
+      return await response.blob();
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      if (error instanceof Error && error.name === 'AbortError') throw new ApiError(0, 'TIMEOUT', 'The receipt took too long to load.');
+      throw new ApiError(0, 'NETWORK_ERROR', 'Could not load the receipt. Check your connection.');
+    } finally {
+      clearTimeout(timeout);
+    }
+  },
 };
 
