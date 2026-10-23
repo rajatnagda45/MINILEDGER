@@ -13,7 +13,7 @@ The mobile API client creates a timed JSON request and attaches the current bear
 5. The development server prints the code because this assignment has no SMS provider.
 6. The challenge expires after five minutes, limits verification attempts, rate-limits requests, and enforces a resend cooldown.
 7. Successful verification deletes the challenge, upserts the user, and returns an issuer/audience-scoped JWT.
-8. Native clients store the JWT in Expo SecureStore. Logout clears the token and TanStack Query cache.
+8. Native clients store the JWT in Expo SecureStore; the web client uses browser storage for the bearer token. On startup the app validates a stored token through an authenticated API request before protected routes render. A rejected token is cleared, while a network failure keeps the potentially valid session behind a retry state. Logout clears the token and TanStack Query cache on every platform.
 
 The in-memory challenge store is intentionally simple for one development instance. Production needs a durable shared challenge store and a real SMS delivery service.
 

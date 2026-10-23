@@ -12,7 +12,7 @@ Evidence recorded on 23 October 2026. The isolated rehearsal used `main` at `cff
 - [x] TypeScript passed for the mobile, backend, and shared workspaces.
 - [x] Expo ESLint passed.
 - [x] The isolated commit ran its original 93 tests with no failures or skips, including the real-PostgreSQL concurrent-repayment test.
-- [x] After RC1 production-configuration and request-failure coverage was added, the current worktree passed all 97 tests with no failures or skips: 27 mobile tests and 70 backend tests.
+- [x] The current worktree passed all 124 tests with no failures or reported skips: 54 mobile tests and 70 backend tests, including authentication restoration, protected routing, production-configuration, and request-failure coverage.
 - [x] Backend test discovery is scoped to source tests, so a prior production build cannot cause compiled `dist/tests` copies to run twice; the post-build suite still reports exactly 70 backend tests.
 - [x] Expo web, iOS, and Android exports completed from both the isolated clone and the current RC1 worktree. Export success is not treated as native runtime verification.
 - [x] OTP, JWT, ownership, production configuration, receipt validation/privacy/cleanup, conditional receipt deletion, integer-paise calculations, overdue boundaries, duplicate submission protection, and concurrent repayment coverage passed.

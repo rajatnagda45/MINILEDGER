@@ -17,7 +17,7 @@ Evidence recorded on 23 October 2026. “Manual action” means the repository c
 | Mobile network configuration reviewed | Verified | Environment-based base URL, iOS/Android/device table, timeout, bearer header, and 401 logout path documented. |
 | Loading, empty, error, success states reviewed | Verified | Code review plus lint/type/bundle gates; native visual behavior requires manual confirmation. |
 | Accessibility improvements checked | Verified in code | Roles, labels, selected/disabled/busy states, non-colour status text, separate targets, and live announcements. VoiceOver/TalkBack requires manual action. |
-| Automated tests executed | Verified | 97/97 tests passed across 18 files: 27 mobile tests plus 70 backend tests, incl. production configuration, request failure classification, OTP boundaries, JWT pinning, receipt validation/consistency, deterministic receipt concurrency, storage permissions, and a real-PostgreSQL concurrent-repayment integration test. |
+| Automated tests executed | Verified | 124/124 tests passed across 23 files: 54 mobile tests plus 70 backend tests, including authentication restoration, protected routing, production configuration, request failure classification, OTP boundaries, JWT pinning, receipt validation/consistency, deterministic receipt concurrency, storage permissions, and a real-PostgreSQL concurrent-repayment integration test. |
 | TypeScript executed | Verified | All workspaces passed strict checking. |
 | Linting executed | Verified | Expo ESLint passed. |
 | Production bundles checked | Verified | iOS, Android, and web exports completed successfully. |
