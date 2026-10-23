@@ -143,7 +143,7 @@ npm run typecheck   # TypeScript across workspaces
 npm run lint        # configured workspace lint checks
 ```
 
-Current verified test result: **124 passed** — 54 mobile tests and 70 backend tests, with no failures or skipped tests reported. Native device interaction is not claimed by this automated result.
+Current verified test result: **127 passed** — 56 mobile tests and 71 backend tests, with no failures or skipped tests reported. Native device interaction is not claimed by this automated result.
 
 ## API overview
 
@@ -171,7 +171,7 @@ The optional receipt bonus uses authenticated `POST`, `GET`, and `DELETE` routes
 | Summary card | `GET /api/summary` and dashboard financial overview |
 | PostgreSQL persistence | Prisma models and committed migrations |
 | Input validation | React Hook Form/Zod plus backend Zod validation |
-| Automated tests | 54 mobile tests and 70 backend tests |
+| Automated tests | 56 mobile tests and 71 backend tests |
 | Receipt-photo bonus | Authenticated upload, viewing, replacement, and removal |
 
 ## Project documentation
@@ -183,6 +183,7 @@ The optional receipt bonus uses authenticated `POST`, `GET`, and `DELETE` routes
 ## Limitations
 
 - Authentication uses a development-only mock OTP stored in process memory; there is no SMS provider.
+- Expo web persists its bearer token in browser `localStorage` to support refresh restoration; native builds use Expo SecureStore. A production web deployment should migrate to a fully coordinated HttpOnly-cookie and CSRF-protection design.
 - The repayment model supports full repayment, not partial payments.
 - Receipt files use private local filesystem storage and accept JPEG/PNG; production deployment would need durable private object storage.
 - Native iOS/Android runtime testing still requires a simulator or physical-device smoke test.

@@ -26,7 +26,7 @@ Tap Mark repaid, show the confirmation, confirm it, and point to the refreshed s
 
 ## 2:15–2:40 — Engineering
 
-Show the PostgreSQL/Prisma schema (loans + receipts metadata), integer-paise field, authenticated user-scoped query, and the passing test command (124 tests: 54 mobile + 70 backend, including authentication restoration, production configuration, request failure classification, deterministic receipt concurrency, and a real-PostgreSQL concurrent-repayment test). Mention Expo, Express, TanStack Query, SecureStore, the tested ownership boundary, and that receipt bytes live in private storage while only metadata is in the database.
+Show the PostgreSQL/Prisma schema (loans + receipts metadata), integer-paise field, authenticated user-scoped query, and the passing test command (127 tests: 56 mobile + 71 backend, including authentication restoration, fail-closed native logout, production configuration, request failure classification, deterministic receipt concurrency, and a real-PostgreSQL concurrent-repayment test). Mention Expo, Express, TanStack Query, SecureStore, the tested ownership boundary, and that receipt bytes live in private storage while only metadata is in the database.
 
 ## 2:40–2:50 — Close
 

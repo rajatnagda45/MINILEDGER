@@ -1,6 +1,6 @@
 # Manual mobile smoke test
 
-Run this on at least one iOS or Android target before recording.
+Run this on at least one iOS or Android target before submission. A completed screen recording is useful evidence, but it does not replace this device checklist.
 
 1. Start PostgreSQL, apply migrations, and start the API.
 2. Start Expo with the correct device-specific `EXPO_PUBLIC_API_URL`.
@@ -25,5 +25,5 @@ Run this on at least one iOS or Android target before recording.
 16. Check keyboard avoidance and safe-area insets (notch/home indicator), long names, large Dynamic Type, VoiceOver/TalkBack labels (including the receipt view/remove controls), narrow screens (~360–390px), and dark system navigation bars.
 17. Check an amount with paise and a large Indian-grouped amount; confirm neither summary value is compacted or rounded.
 
-Record any platform-specific issue before submission. Do not use a screen recording to hide a failed interaction.
+Record any platform-specific issue before submission. Do not treat a screen recording as proof of interactions it does not show.
 
