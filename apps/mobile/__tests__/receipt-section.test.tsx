@@ -1,5 +1,5 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
-import type { ReceiptMeta } from '@miniledger/shared';
+import type { Loan, ReceiptMeta } from '@miniledger/shared';
 import { ReceiptSection } from '@/components/receipt-section';
 import { api, ApiError } from '@/lib/api';
 import { createTestClient, TestQueryProvider } from './test-utils';
@@ -26,6 +26,10 @@ jest.mock('@/lib/api', () => {
 const uploadReceipt = api.uploadReceipt as jest.MockedFunction<typeof api.uploadReceipt>;
 const deleteReceipt = api.deleteReceipt as jest.MockedFunction<typeof api.deleteReceipt>;
 const receipt: ReceiptMeta = { mimeType: 'image/png', byteSize: 2048, createdAt: '2026-10-23T00:00:00.000Z' };
+const updatedLoan: Loan = {
+  id: 'loan-1', friendName: 'Rohit Sen', amount: 7650, currency: 'INR', dueDate: '2026-10-30', status: 'OUTSTANDING', isOverdue: false,
+  receiptAvailable: true, receipt, createdAt: '2026-10-23T00:00:00.000Z', updatedAt: '2026-10-23T00:00:00.000Z', repaidAt: null,
+};
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -43,11 +47,25 @@ it('reports an upload failure and keeps financial summary queries untouched', as
 });
 
 it('announces a successful first receipt upload', async () => {
-  uploadReceipt.mockResolvedValue({ loan: {} as never });
-  const screen = await render(<ReceiptSection loanId="loan-1" receipt={null} />, { wrapper: TestQueryProvider });
+  uploadReceipt.mockResolvedValue({ loan: updatedLoan });
+  const client = createTestClient();
+  const screen = await render(<TestQueryProvider client={client}><ReceiptSection loanId="loan-1" receipt={null} /></TestQueryProvider>);
   await fireEvent.press(screen.getByText('Pick test receipt'));
   expect(await screen.findByText('Receipt uploaded')).toBeTruthy();
   expect(screen.getByText('The receipt is now attached to this loan.')).toBeTruthy();
+  expect(client.getQueryData(['loan', 'loan-1'])).toEqual({ loan: updatedLoan });
+});
+
+it('presents an attached receipt as a prominent private document preview', async () => {
+  const screen = await render(<ReceiptSection loanId="loan-1" receipt={receipt} />, { wrapper: TestQueryProvider });
+
+  expect(screen.getByText('Receipt attached')).toBeTruthy();
+  expect(screen.getByText('Stored privately with this loan')).toBeTruthy();
+  expect(screen.getByText('PRIVATE')).toBeTruthy();
+  expect(screen.getByLabelText('View full receipt')).toBeTruthy();
+  expect(screen.getByText('Open full receipt')).toBeTruthy();
+  expect(screen.getByText('PNG')).toBeTruthy();
+  expect(screen.getByText('2 KB')).toBeTruthy();
 });
 
 it('uploads a replacement and refreshes only loan views', async () => {

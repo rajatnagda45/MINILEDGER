@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import type { ReceiptMeta } from '@miniledger/shared';
+import type { Loan, ReceiptMeta } from '@miniledger/shared';
 import { colors, controls, radii, spacing, type } from '@/constants/theme';
 import { api, ApiError, type ReceiptAsset } from '@/lib/api';
 import { useInteraction } from '@/providers/interaction-provider';
@@ -33,8 +33,12 @@ export function ReceiptSection({ loanId, receipt }: { loanId: string; receipt: R
 
   const upload = useMutation({
     mutationFn: (asset: ReceiptAsset) => api.uploadReceipt(loanId, asset),
-    onSuccess: async () => {
+    onSuccess: async ({ loan }) => {
       const wasReplacement = Boolean(receipt);
+      // Render the real server response immediately, then refresh in the
+      // background so the detail view never falls back to the empty picker
+      // between a successful upload and the parent query refetch.
+      queryClient.setQueryData<{ loan: Loan }>(['loan', loanId], { loan });
       setDraft(null);
       setReplacing(false);
       setVersion((v) => v + 1);
@@ -77,17 +81,27 @@ export function ReceiptSection({ loanId, receipt }: { loanId: string; receipt: R
 
       {receipt && !replacing ? (
         <View style={styles.card}>
-          <Pressable accessibilityRole="imagebutton" accessibilityLabel="View receipt" onPress={() => setViewerOpen(true)} style={styles.thumbPress}>
-            <ReceiptImage loanId={loanId} token={version} style={styles.thumb} />
-          </Pressable>
-          <View style={styles.cardBody}>
-            <Text style={styles.cardMeta}>{receipt.mimeType.replace('image/', '').toUpperCase()} · {sizeLabel(receipt.byteSize)}</Text>
-            <Text style={styles.cardSub}>Added {new Date(receipt.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</Text>
-            <View style={styles.actions}>
-              <Pressable accessibilityRole="button" accessibilityLabel="View receipt" onPress={() => setViewerOpen(true)} style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}><Ionicons name="expand-outline" size={15} color={colors.primaryDark} /><Text style={styles.actionText}>View</Text></Pressable>
-              <Pressable accessibilityRole="button" accessibilityLabel="Replace receipt" onPress={() => { setDraft(null); setReplacing(true); }} style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}><Ionicons name="swap-horizontal-outline" size={15} color={colors.primaryDark} /><Text style={styles.actionText}>Replace</Text></Pressable>
-              <Pressable accessibilityRole="button" accessibilityLabel="Remove receipt" accessibilityState={{ disabled: remove.isPending, busy: remove.isPending }} disabled={remove.isPending} onPress={confirmRemove} style={({ pressed }) => [styles.action, pressed && styles.actionPressed, remove.isPending && styles.actionDisabled]}><Ionicons name="trash-outline" size={15} color={colors.danger} /><Text style={[styles.actionText, styles.removeText]}>{remove.isPending ? 'Removing…' : 'Remove'}</Text></Pressable>
+          <View style={styles.attachedHeader}>
+            <View style={styles.attachedIcon}><Ionicons name="checkmark" size={20} color={colors.success} /></View>
+            <View style={styles.attachedCopy}>
+              <Text style={styles.attachedTitle}>Receipt attached</Text>
+              <Text style={styles.attachedSub}>Stored privately with this loan</Text>
             </View>
+            <View style={styles.privateBadge}><Ionicons name="lock-closed" size={12} color={colors.success} /><Text style={styles.privateText}>PRIVATE</Text></View>
+          </View>
+          <Pressable accessibilityRole="imagebutton" accessibilityLabel="View full receipt" accessibilityHint="Opens the receipt in a full-screen viewer" onPress={() => setViewerOpen(true)} style={({ pressed }) => [styles.previewPress, pressed && styles.previewPressed]}>
+            <ReceiptImage loanId={loanId} token={version} resizeMode="contain" style={styles.preview} />
+            <View style={styles.previewCta}><Ionicons name="expand-outline" size={16} color={colors.white} /><Text style={styles.previewCtaText}>Open full receipt</Text></View>
+          </Pressable>
+          <View style={styles.metadata}>
+            <View style={styles.metaItem}><Ionicons name="image-outline" size={15} color={colors.inkSoft} /><Text style={styles.metaText}>{receipt.mimeType.replace('image/', '').toUpperCase()}</Text></View>
+            <View style={styles.metaItem}><Ionicons name="cloud-done-outline" size={15} color={colors.inkSoft} /><Text style={styles.metaText}>{sizeLabel(receipt.byteSize)}</Text></View>
+            <View style={styles.metaItem}><Ionicons name="calendar-outline" size={15} color={colors.inkSoft} /><Text style={styles.metaText}>{new Date(receipt.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</Text></View>
+          </View>
+          <View style={styles.actions}>
+            <Pressable accessibilityRole="button" accessibilityLabel="View receipt" onPress={() => setViewerOpen(true)} style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}><Ionicons name="eye-outline" size={17} color={colors.primaryDark} /><Text style={styles.actionText}>View</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Replace receipt" onPress={() => { setDraft(null); setReplacing(true); }} style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}><Ionicons name="swap-horizontal-outline" size={17} color={colors.primaryDark} /><Text style={styles.actionText}>Replace</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Remove receipt" accessibilityState={{ disabled: remove.isPending, busy: remove.isPending }} disabled={remove.isPending} onPress={confirmRemove} style={({ pressed }) => [styles.action, styles.removeAction, pressed && styles.actionPressed, remove.isPending && styles.actionDisabled]}><Ionicons name="trash-outline" size={17} color={colors.danger} /><Text style={[styles.actionText, styles.removeText]}>{remove.isPending ? 'Removing…' : 'Remove'}</Text></Pressable>
           </View>
         </View>
       ) : (
@@ -116,14 +130,25 @@ export function ReceiptSection({ loanId, receipt }: { loanId: string; receipt: R
 const styles = StyleSheet.create({
   section: { gap: spacing.sm },
   heading: { ...type.h3, color: colors.ink },
-  card: { flexDirection: 'row', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.line, padding: spacing.sm },
-  thumbPress: { borderRadius: radii.md, overflow: 'hidden' },
-  thumb: { width: 76, height: 76, borderRadius: radii.md },
-  cardBody: { flex: 1, justifyContent: 'center', gap: 3 },
-  cardMeta: { ...type.bodyStrong, color: colors.ink },
-  cardSub: { ...type.caption, color: colors.muted },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: 4 },
-  action: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: controls.touch },
+  card: { gap: spacing.md, backgroundColor: colors.surface, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.successLine, padding: spacing.md },
+  attachedHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  attachedIcon: { width: 40, height: 40, borderRadius: 13, backgroundColor: colors.successSoft, borderWidth: 1, borderColor: colors.successLine, alignItems: 'center', justifyContent: 'center' },
+  attachedCopy: { flex: 1, minWidth: 0 },
+  attachedTitle: { ...type.bodyStrong, color: colors.ink },
+  attachedSub: { ...type.caption, color: colors.inkSoft },
+  privateBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: radii.pill, backgroundColor: colors.successSoft, paddingHorizontal: spacing.xs, paddingVertical: 6 },
+  privateText: { ...type.micro, color: colors.success },
+  previewPress: { position: 'relative', height: 220, borderRadius: radii.md, overflow: 'hidden', borderWidth: 1, borderColor: colors.line, backgroundColor: colors.canvas },
+  previewPressed: { opacity: 0.86 },
+  preview: { width: '100%', height: '100%' },
+  previewCta: { position: 'absolute', right: spacing.sm, bottom: spacing.sm, minHeight: 36, borderRadius: radii.pill, backgroundColor: 'rgba(11,14,21,0.82)', paddingHorizontal: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  previewCtaText: { ...type.caption, color: colors.white },
+  metadata: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  metaItem: { minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: radii.pill, backgroundColor: colors.canvas, borderWidth: 1, borderColor: colors.lineSoft, paddingHorizontal: spacing.sm },
+  metaText: { ...type.caption, color: colors.inkSoft },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  action: { flex: 1, minWidth: 92, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: controls.touch, borderRadius: radii.sm, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.canvas },
+  removeAction: { borderColor: colors.dangerLine, backgroundColor: colors.dangerSoft },
   actionPressed: { opacity: 0.72 },
   actionDisabled: { opacity: 0.5 },
   actionText: { ...type.caption, color: colors.primaryDark },

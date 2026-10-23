@@ -53,7 +53,7 @@ Reusable tokens control colour, typography, spacing, radii, and elevation. The M
 
 Each loan can carry one optional receipt photo, implemented end to end.
 
-- **Selection and upload.** The add-loan form and loan-detail screen select a JPEG/PNG from the library (or camera on native) via `expo-image-picker`, then `POST /loans/:id/receipt` as `multipart/form-data`. The loan is created first; a failed receipt upload never discards it.
+- **Selection and upload.** The add-loan form and loan-detail screen select an image from the library (or camera on native) via `expo-image-picker`, then `POST /loans/:id/receipt` as `multipart/form-data`. On web, genuine JPEG/PNG bytes pass through unchanged; other browser-decodable formats such as WebP or AVIF are bounded and converted to JPEG before upload. The loan is created first; a failed receipt upload never discards it.
 - **Authorization.** Upload, retrieval, and deletion require a valid JWT and verify loan ownership via `findLoan(userId, …)` before any storage or metadata access, so one user can never reach another's receipt (cross-user requests return `404`).
 - **Validation.** The declared MIME type and filename are untrusted. `inspectImage` performs a bounded structural check (PNG `IHDR`/`IEND`, JPEG `SOI`/`SOF`/`EOI`), rejects truncated/malformed files, and bounds real pixel dimensions; multer enforces a 5 MB limit. Only JPEG and PNG are accepted.
 - **Storage split.** Bytes live on a private local filesystem (`RECEIPT_STORAGE_DIR`, `0700` dir / `0600` files, exclusive-create, server-generated random keys, outside any served path). PostgreSQL stores only metadata (`receipts`: storage key, verified media type, byte size, timestamp) one-to-one with the loan.

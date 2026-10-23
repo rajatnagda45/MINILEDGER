@@ -175,7 +175,11 @@ function GuidancePanel({ wide }: { wide: boolean }) {
       </View>
       <View style={styles.guidanceList}>
         <GuidanceRow icon="calendar-outline" title="Due dates stay visible" copy="Past dates are allowed and will be marked overdue immediately." />
-        <GuidanceRow icon="receipt-outline" title="Receipts are optional" copy="Attach a JPEG or PNG up to 5 MB now, or add one later." />
+        <GuidanceRow
+          icon="receipt-outline"
+          title="Receipts are optional"
+          copy={Platform.OS === 'web' ? 'Attach an image up to 5 MB. Browser formats are converted to JPEG when needed.' : 'Attach a JPEG or PNG up to 5 MB now, or add one later.'}
+        />
         <GuidanceRow icon="sync-outline" title="Totals update after save" copy="Your dashboard values come from the server, not this form." />
       </View>
     </View>

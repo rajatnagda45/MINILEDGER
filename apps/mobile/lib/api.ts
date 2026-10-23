@@ -5,9 +5,87 @@ const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://127.0.0.1:4000/api')
 
 export interface ReceiptAsset { uri: string; name: string; mimeType: string }
 
+const WEB_RECEIPT_MAX_DIMENSION = 4096;
+const WEB_RECEIPT_MAX_PIXELS = 16_000_000;
+const WEB_RECEIPT_JPEG_QUALITY = 0.86;
+
 export class ApiError extends Error {
   constructor(public readonly status: number, public readonly code: string, message: string, public readonly details?: unknown) {
     super(message);
+  }
+}
+
+function detectedReceiptMimeType(blob: Blob): Promise<'image/jpeg' | 'image/png' | null> {
+  return blob.slice(0, 12).arrayBuffer().then((header) => {
+    const bytes = new Uint8Array(header);
+    if (bytes.length >= 8 && [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a].every((byte, index) => bytes[index] === byte)) {
+      return 'image/png';
+    }
+    if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
+    return null;
+  });
+}
+
+function jpegFilename(name: string): string {
+  const base = name.replace(/\.[^./\\]+$/, '').trim();
+  return `${base || 'receipt'}.jpg`;
+}
+
+/**
+ * The browser picker exposes every image format the browser can preview, while
+ * the API deliberately stores only structurally validated JPEG/PNG bytes. Keep
+ * that backend boundary and convert other browser-decodable formats (for
+ * example WebP or AVIF) to a bounded JPEG before upload.
+ */
+export async function prepareWebReceipt(asset: ReceiptAsset): Promise<{ blob: Blob; name: string }> {
+  const response = await fetch(asset.uri);
+  if (!response.ok) throw new ApiError(0, 'RECEIPT_READ_FAILED', 'The selected image could not be read. Choose it again.');
+  const sourceBlob = await response.blob();
+  const detectedType = await detectedReceiptMimeType(sourceBlob);
+  if (detectedType) return { blob: sourceBlob, name: asset.name };
+
+  if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') {
+    throw new ApiError(415, 'RECEIPT_INVALID_TYPE', 'Choose a JPEG or PNG image. This image format cannot be converted by your browser.');
+  }
+
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(sourceBlob);
+  } catch {
+    throw new ApiError(415, 'RECEIPT_INVALID_TYPE', 'Choose a JPEG or PNG image. This image format cannot be converted by your browser.');
+  }
+
+  try {
+    const scale = Math.min(
+      1,
+      WEB_RECEIPT_MAX_DIMENSION / bitmap.width,
+      WEB_RECEIPT_MAX_DIMENSION / bitmap.height,
+      Math.sqrt(WEB_RECEIPT_MAX_PIXELS / (bitmap.width * bitmap.height)),
+    );
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Canvas is unavailable');
+    // JPEG has no alpha channel. A white background keeps transparent receipt
+    // scans readable instead of turning transparent pixels black.
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, width, height);
+    context.drawImage(bitmap, 0, 0, width, height);
+    const converted = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => blob ? resolve(blob) : reject(new Error('Image conversion failed')),
+        'image/jpeg',
+        WEB_RECEIPT_JPEG_QUALITY,
+      );
+    });
+    return { blob: converted, name: jpegFilename(asset.name) };
+  } catch {
+    throw new ApiError(415, 'RECEIPT_INVALID_TYPE', 'Choose a JPEG or PNG image. This image format cannot be converted by your browser.');
+  } finally {
+    bitmap.close();
   }
 }
 
@@ -89,8 +167,8 @@ export const api = {
   uploadReceipt: async (loanId: string, asset: ReceiptAsset) => {
     const form = new FormData();
     if (Platform.OS === 'web') {
-      const blob = await (await fetch(asset.uri)).blob();
-      form.append('receipt', blob, asset.name);
+      const prepared = await prepareWebReceipt(asset);
+      form.append('receipt', prepared.blob, prepared.name);
     } else {
       // React Native's FormData accepts a { uri, name, type } file descriptor.
       form.append('receipt', { uri: asset.uri, name: asset.name, type: asset.mimeType } as unknown as Blob);

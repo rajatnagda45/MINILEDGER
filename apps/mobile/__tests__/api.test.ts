@@ -1,12 +1,74 @@
-import { api, ApiError, configureApi } from '@/lib/api';
+import { Platform } from 'react-native';
+import { api, ApiError, configureApi, prepareWebReceipt } from '@/lib/api';
 
 const originalFetch = global.fetch;
+const originalOS = Platform.OS;
+const originalCreateImageBitmap = Object.getOwnPropertyDescriptor(globalThis, 'createImageBitmap');
+const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
 
 afterEach(() => {
   jest.useRealTimers();
   global.fetch = originalFetch;
+  Object.defineProperty(Platform, 'OS', { value: originalOS });
+  if (originalCreateImageBitmap) Object.defineProperty(globalThis, 'createImageBitmap', originalCreateImageBitmap);
+  else delete (globalThis as { createImageBitmap?: typeof createImageBitmap }).createImageBitmap;
+  if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
+  else delete (globalThis as { document?: Document }).document;
   configureApi(null);
-  jest.clearAllMocks();
+  jest.restoreAllMocks();
+});
+
+it('passes through a selected PNG after checking its actual bytes', async () => {
+  const png = new Blob([Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0])], { type: 'image/png' });
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, blob: async () => png }) as jest.Mock;
+
+  await expect(prepareWebReceipt({ uri: 'blob:receipt', name: 'receipt.png', mimeType: 'image/png' }))
+    .resolves.toEqual({ blob: png, name: 'receipt.png' });
+});
+
+it('converts a browser-supported WebP selection to a bounded JPEG before upload', async () => {
+  const webp = new Blob([Uint8Array.from([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50])], { type: 'image/webp' });
+  const jpeg = new Blob([Uint8Array.from([0xff, 0xd8, 0xff, 0xd9])], { type: 'image/jpeg' });
+  const close = jest.fn();
+  const bitmap = { width: 6000, height: 3000, close } as unknown as ImageBitmap;
+  const context = { fillStyle: '', fillRect: jest.fn(), drawImage: jest.fn() };
+  const canvas = {
+    width: 0,
+    height: 0,
+    getContext: jest.fn(() => context),
+    toBlob: jest.fn((callback: BlobCallback) => callback(jpeg)),
+  } as unknown as HTMLCanvasElement;
+
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, blob: async () => webp }) as jest.Mock;
+  Object.defineProperty(globalThis, 'createImageBitmap', { configurable: true, value: jest.fn().mockResolvedValue(bitmap) });
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: { createElement: jest.fn(() => canvas) },
+  });
+
+  await expect(prepareWebReceipt({ uri: 'blob:receipt', name: 'receipt.webp', mimeType: 'image/webp' }))
+    .resolves.toEqual({ blob: jpeg, name: 'receipt.jpg' });
+  expect(canvas.width).toBe(4096);
+  expect(canvas.height).toBe(2048);
+  expect(context.fillRect).toHaveBeenCalledWith(0, 0, 4096, 2048);
+  expect(context.drawImage).toHaveBeenCalledWith(bitmap, 0, 0, 4096, 2048);
+  expect(close).toHaveBeenCalledTimes(1);
+});
+
+it('uploads the prepared browser receipt through the existing multipart endpoint', async () => {
+  Object.defineProperty(Platform, 'OS', { value: 'web' });
+  const png = new Blob([Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0])], { type: 'image/png' });
+  global.fetch = jest.fn()
+    .mockResolvedValueOnce({ ok: true, blob: async () => png })
+    .mockResolvedValueOnce({ ok: true, status: 201, json: async () => ({ loan: { id: 'loan-1' } }) }) as jest.Mock;
+
+  await expect(api.uploadReceipt('loan-1', { uri: 'blob:receipt', name: 'receipt.png', mimeType: 'image/png' }))
+    .resolves.toEqual({ loan: { id: 'loan-1' } });
+  expect(global.fetch).toHaveBeenNthCalledWith(
+    2,
+    expect.stringMatching(/\/loans\/loan-1\/receipt$/),
+    expect.objectContaining({ method: 'POST', body: expect.any(FormData) }),
+  );
 });
 
 it('forwards query cancellation to fetch without misreporting it as a timeout', async () => {

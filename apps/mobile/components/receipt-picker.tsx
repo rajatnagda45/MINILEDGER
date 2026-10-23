@@ -77,7 +77,11 @@ export function ReceiptPicker({ value, onChange, disabled }: { value: ReceiptAss
           </View>
         </View>
       )}
-      {error ? <Text style={styles.error} accessibilityLiveRegion="polite">{error}</Text> : <Text style={styles.hint}>JPEG or PNG · up to 5 MB</Text>}
+      {error ? <Text style={styles.error} accessibilityLiveRegion="polite">{error}</Text> : (
+        <Text style={styles.hint}>
+          {Platform.OS === 'web' ? 'Image up to 5 MB · converted to JPEG when needed' : 'JPEG or PNG · up to 5 MB'}
+        </Text>
+      )}
     </View>
   );
 }
