@@ -64,7 +64,17 @@ export default function DashboardScreen() {
   const overdueLoanCount = loansQuery.data?.loans.filter((loan) => loan.isOverdue).length ?? 0;
 
   const onAdd = () => router.push('/(app)/add-loan');
-  const onSignOut = () => confirm({ title: 'Sign out?', message: 'Your private ledger will be removed from this device.', confirmLabel: 'Sign out', pendingLabel: 'Signing out…', destructive: true }, signOut);
+  const onSignOut = () => confirm(
+    { title: 'Sign out?', message: 'Your private ledger will be removed from this device.', confirmLabel: 'Sign out', pendingLabel: 'Signing out…', destructive: true },
+    async () => {
+      try {
+        await signOut();
+      } catch (error) {
+        notify({ tone: 'error', title: 'Couldn’t sign out securely', message: error instanceof Error ? error.message : 'Please try again.' });
+        throw error;
+      }
+    },
+  );
 
   const overview = (
     <>

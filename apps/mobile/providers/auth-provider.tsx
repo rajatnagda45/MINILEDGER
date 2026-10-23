@@ -20,15 +20,29 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const lifecycle = useRef(0);
+  const tokenRef = useRef<string | null>(null);
 
   const signOut = useCallback(async () => {
     lifecycle.current += 1;
     configureApi(null);
-    setToken(null);
     setRestoreError(null);
+    // Hide protected UI and disable authenticated requests while persistent
+    // storage is being invalidated. Do not publish a completed logout first.
+    setRestoring(true);
+    try {
+      await tokenStorage.clear();
+    } catch {
+      // A failed marker write may mean the credential still exists. Keep the
+      // current in-memory session, report failure to the caller, and allow retry.
+      const current = tokenRef.current;
+      configureApi(current, current ? () => { void signOut().catch(() => undefined); } : undefined);
+      setRestoring(false);
+      throw new Error('Couldn’t securely remove this session. Please try signing out again.');
+    }
+    tokenRef.current = null;
+    setToken(null);
     setRestoring(false);
     queryClient.clear();
-    await tokenStorage.clear();
   }, [queryClient]);
 
   const restoreSession = useCallback(async () => {
@@ -51,6 +65,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     if (attempt !== lifecycle.current) return;
     if (!saved) {
       configureApi(null);
+      tokenRef.current = null;
       setToken(null);
       setRestoring(false);
       return;
@@ -63,19 +78,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
     try {
       await api.validateSession();
       if (attempt !== lifecycle.current) return;
-      configureApi(saved, () => void signOut());
+      configureApi(saved, () => { void signOut().catch(() => undefined); });
+      tokenRef.current = saved;
       setToken(saved);
       setRestoring(false);
     } catch (error) {
       if (attempt !== lifecycle.current) return;
       if (error instanceof ApiError && error.status === 401) {
-        await signOut();
+        await signOut().catch(() => undefined);
         return;
       }
 
       // Transport failures do not prove that a signed token is invalid. Keep
       // it persisted and configured, but hold protected routes behind a retry.
-      configureApi(saved, () => void signOut());
+      configureApi(saved, () => { void signOut().catch(() => undefined); });
+      tokenRef.current = saved;
       setToken(saved);
       setRestoreError(error instanceof ApiError ? error.message : 'Couldn’t verify your saved session.');
       setRestoring(false);
@@ -90,8 +107,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const signIn = useCallback(async (phoneNumber: string, otp: string) => {
     const session = await api.verifyOtp(phoneNumber, otp);
     await tokenStorage.set(session.token);
-    configureApi(session.token, () => void signOut());
+    configureApi(session.token, () => { void signOut().catch(() => undefined); });
     setRestoreError(null);
+    tokenRef.current = session.token;
     setToken(session.token);
   }, [signOut]);
 

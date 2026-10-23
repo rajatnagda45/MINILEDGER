@@ -12,6 +12,11 @@ jest.mock('expo-secure-store', () => ({
 const originalOS = Platform.OS;
 const originalStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
 
+beforeEach(() => {
+  (SecureStore.setItemAsync as jest.Mock).mockResolvedValue(undefined);
+  (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
+});
+
 afterEach(() => {
   Object.defineProperty(Platform, 'OS', { value: originalOS });
   if (originalStorage) Object.defineProperty(globalThis, 'localStorage', originalStorage);
@@ -56,5 +61,22 @@ it('uses device-only SecureStore accessibility on native', async () => {
   );
   expect(await tokenStorage.get()).toBe('native-token');
   await tokenStorage.clear();
+  expect(SecureStore.setItemAsync).toHaveBeenLastCalledWith(
+    'miniledger.session-token',
+    'miniledger.signed-out',
+    { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY },
+  );
   expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('miniledger.session-token');
+});
+
+it('fails closed across restart when native deletion fails after the logout marker is stored', async () => {
+  Object.defineProperty(Platform, 'OS', { value: 'ios' });
+  let stored: string | null = 'native-token';
+  (SecureStore.setItemAsync as jest.Mock).mockImplementation(async (_key, value) => { stored = value; });
+  (SecureStore.getItemAsync as jest.Mock).mockImplementation(async () => stored);
+  (SecureStore.deleteItemAsync as jest.Mock).mockRejectedValue(new Error('keychain temporarily unavailable'));
+
+  await expect(tokenStorage.clear()).resolves.toBeUndefined();
+  expect(stored).toBe('miniledger.signed-out');
+  await expect(tokenStorage.get()).resolves.toBeNull();
 });
