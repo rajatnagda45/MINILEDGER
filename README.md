@@ -62,7 +62,7 @@ Captured on 23 October 2026 from the running web build against the seeded Postgr
 
 | Login | Dashboard | Add loan |
 | --- | --- | --- |
-| ![MiniLedger desktop login, two-column split](docs/screenshots/login-desktop.png) | ![MiniLedger desktop dashboard with summary sidebar and loan list](docs/screenshots/dashboard-desktop.png) | ![MiniLedger add-loan form on desktop](docs/screenshots/add-loan-desktop.png) |
+| ![MiniLedger desktop login, two-column split](docs/screenshots/login-desktop-2026.png) | ![MiniLedger desktop dashboard with summary sidebar and loan list](docs/screenshots/dashboard-desktop-2026.png) | ![MiniLedger add-loan form on desktop](docs/screenshots/add-loan-desktop-2026.png) |
 
 **Mobile — narrow single column**
 
