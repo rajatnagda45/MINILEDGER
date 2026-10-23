@@ -2,12 +2,6 @@
 
 MiniLedger is a React Native lending tracker for money lent to friends. It records due dates and repayments, highlights overdue loans, and presents server-calculated outstanding balances through an Expo app backed by Express, Prisma, and PostgreSQL.
 
-## Demo recording
-
-> **TODO: Add public 2–3 minute demo recording URL**
-
-A genuine public recording has not been added yet. Before submission, record the real app, enable reviewer access, and verify the link in a private browser window. A concise walkthrough is available in the [demo script](docs/demo-script.md).
-
 ## Screenshots
 
 These captures come from the running web build using seeded local demonstration records. They show assignment functionality and do not represent a production account or real financial activity.
@@ -184,7 +178,6 @@ The optional receipt bonus uses authenticated `POST`, `GET`, and `DELETE` routes
 
 - [API reference](docs/api.md)
 - [Architecture and engineering decisions](docs/architecture.md)
-- [Demo recording script](docs/demo-script.md)
 - [Manual device smoke test](docs/manual-smoke-test.md)
 
 ## Limitations
@@ -193,4 +186,3 @@ The optional receipt bonus uses authenticated `POST`, `GET`, and `DELETE` routes
 - The repayment model supports full repayment, not partial payments.
 - Receipt files use private local filesystem storage and accept JPEG/PNG; production deployment would need durable private object storage.
 - Native iOS/Android runtime testing still requires a simulator or physical-device smoke test.
-- The required public 2–3 minute demo recording has not yet been added.
