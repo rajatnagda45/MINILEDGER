@@ -71,8 +71,29 @@ class FailingStore extends MemoryStore {
   failUpsert = false;
   failDeleteReceipt = false;
   failRecordOrphan = false;
+  private upsertPause: { started: () => void; gate: Promise<void> } | null = null;
+
+  pauseNextUpsertAfterRead(): { started: Promise<void>; resume: () => void } {
+    let markStarted!: () => void;
+    let resume!: () => void;
+    const started = new Promise<void>((resolve) => { markStarted = resolve; });
+    const gate = new Promise<void>((resolve) => { resume = resolve; });
+    this.upsertPause = { started: markStarted, gate };
+    return { started, resume };
+  }
+
   override async upsertReceipt(loanId: string, input: ReceiptInput) {
     if (this.failUpsert) throw new Error('simulated database failure');
+    const pause = this.upsertPause;
+    if (pause) {
+      this.upsertPause = null;
+      const previous = this.receipts.get(loanId) ?? null;
+      pause.started();
+      await pause.gate;
+      const record = { id: previous?.id ?? randomUUID(), loanId, ...input, createdAt: new Date() };
+      this.receipts.set(loanId, record);
+      return { record, previous };
+    }
     return super.upsertReceipt(loanId, input);
   }
   override async deleteReceiptByLoanIfMatches(loanId: string, storageKey: string) {
@@ -287,6 +308,29 @@ describe('receipts', () => {
     expect(storage.objects.size).toBe(1);
     const res = await request(app).get(`/api/loans/${loan.id}`).set('Authorization', `Bearer ${token}`).expect(200);
     expect(res.body.loan.receipt.mimeType).toBe('image/jpeg');
+  });
+
+  it('serializes concurrent replacements so only the winning receipt remains stored', async () => {
+    const token = await signIn();
+    const loan = await createLoan(token);
+    await upload(token, loan.id, PNG).expect(201);
+    const pause = store.pauseNextUpsertAfterRead();
+
+    const first = upload(token, loan.id, JPEG, 'first.jpg', 'image/jpeg').then((response) => response);
+    await pause.started;
+    const second = upload(token, loan.id, PNG, 'second.png', 'image/png').then((response) => response);
+    // Flush the event loop so an unserialized second upsert would commit while
+    // the first still holds its stale read. This is coordination, not timing.
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    pause.resume();
+
+    expect((await first).status).toBe(201);
+    expect((await second).status).toBe(201);
+    const winningKey = storage.saved[2]!;
+    expect((await store.findReceiptByLoan(loan.id))?.storageKey).toBe(winningKey);
+    expect([...storage.objects.keys()]).toEqual([winningKey]);
+    const retrieved = await request(app).get(`/api/loans/${loan.id}/receipt`).set('Authorization', `Bearer ${token}`).buffer(true).parse(binaryParser).expect(200);
+    expect(retrieved.body).toEqual(PNG);
   });
 
   it('keeps the receipt intact and retryable when the file deletion fails', async () => {

@@ -14,7 +14,26 @@ export interface UploadedFile {
 }
 
 export class ReceiptService {
+  private readonly replacementQueues = new Map<string, Promise<void>>();
+
   constructor(private readonly store: DataStore, private readonly storage: ReceiptStorage) {}
+
+  /** Serialize metadata replacement and cleanup for one loan within this API
+   * process. New objects may be written concurrently, but each replacement then
+   * observes the actual preceding record and cleans up exactly that object. */
+  private async serializeReplacement<T>(loanId: string, operation: () => Promise<T>): Promise<T> {
+    const previous = this.replacementQueues.get(loanId) ?? Promise.resolve();
+    let release!: () => void;
+    const current = new Promise<void>((resolve) => { release = resolve; });
+    this.replacementQueues.set(loanId, current);
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
+      if (this.replacementQueues.get(loanId) === current) this.replacementQueues.delete(loanId);
+    }
+  }
 
   private async requireOwnedLoan(userId: string, loanId: string): Promise<string> {
     const id = loanIdSchema.parse(loanId);
@@ -50,22 +69,24 @@ export class ReceiptService {
     const { mimeType } = inspection;
 
     const storageKey = await this.storage.save(file.buffer, mimeType);
-    let result;
-    try {
-      result = await this.store.upsertReceipt(id, { storageKey, mimeType, byteSize: file.buffer.length });
-    } catch (error) {
-      // Metadata failed: the just-written object is now an orphan. Delete it; if
-      // that also fails, record a tombstone so it is never silently lost.
-      await this.cleanupOrTombstone(storageKey, 'upload-rollback');
-      throw error;
-    }
-    // Replacement succeeded and points at the new object. Remove the previous
-    // object; a failure here is tombstoned (observable + reconcilable) rather
-    // than swallowed, and never fails the already-committed replacement.
-    if (result.previous && result.previous.storageKey !== storageKey) {
-      await this.cleanupOrTombstone(result.previous.storageKey, 'replace-cleanup');
-    }
-    return result.record;
+    return this.serializeReplacement(id, async () => {
+      let result;
+      try {
+        result = await this.store.upsertReceipt(id, { storageKey, mimeType, byteSize: file.buffer.length });
+      } catch (error) {
+        // Metadata failed: the just-written object is now an orphan. Delete it; if
+        // that also fails, record a tombstone so it is never silently lost.
+        await this.cleanupOrTombstone(storageKey, 'upload-rollback');
+        throw error;
+      }
+      // Replacement succeeded and points at the new object. Remove the previous
+      // object; a failure here is tombstoned (observable + reconcilable) rather
+      // than swallowed, and never fails the already-committed replacement.
+      if (result.previous && result.previous.storageKey !== storageKey) {
+        await this.cleanupOrTombstone(result.previous.storageKey, 'replace-cleanup');
+      }
+      return result.record;
+    });
   }
 
   async get(userId: string, loanId: string): Promise<{ receipt: ReceiptRecord; bytes: Buffer }> {
