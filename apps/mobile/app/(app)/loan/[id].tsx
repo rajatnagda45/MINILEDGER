@@ -35,7 +35,7 @@ export default function LoanDetailScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={[styles.content, isDesktop && styles.contentDesktop]}>
         <View style={styles.nav}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.back}><Ionicons name="arrow-back" size={22} color={colors.ink} /></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)')} style={styles.back}><Ionicons name="arrow-back" size={22} color={colors.ink} /></Pressable>
           <Text style={styles.navTitle}>Loan details</Text><View style={styles.navSpacer} />
         </View>
         {query.isLoading && <LoadingState label="Opening loan…" />}
@@ -46,12 +46,14 @@ export default function LoanDetailScreen() {
               <View style={[styles.hero, isDesktop && styles.heroDesktop, loan.isOverdue && styles.heroOverdue]}>
                 <View style={styles.heroLead}>
                   <View style={[styles.avatar, loan.isOverdue && styles.avatarOverdue, loan.status === 'REPAID' && styles.avatarRepaid]}><Text style={styles.avatarText}>{initials(loan.friendName)}</Text></View>
-                  <View style={styles.heroIdentity}><Text style={styles.heroEyebrow}>LOAN RECORD</Text><Text style={styles.name}>{loan.friendName}</Text></View>
+                  <View style={styles.heroIdentity}><Text style={styles.heroEyebrow}>LOAN RECORD</Text><Text numberOfLines={2} style={styles.name}>{loan.friendName}</Text></View>
                 </View>
-                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={styles.amount}>{formatCurrency(loan.amount)}</Text>
-                <View style={[styles.status, loan.isOverdue ? styles.statusOverdue : loan.status === 'REPAID' ? styles.statusRepaid : styles.statusActive]}>
-                  <Ionicons name={loan.isOverdue ? 'alert-circle' : loan.status === 'REPAID' ? 'checkmark-circle' : 'time'} size={15} color={loan.isOverdue ? colors.danger : loan.status === 'REPAID' ? colors.success : colors.primary} />
-                  <Text style={[styles.statusText, loan.isOverdue ? styles.textOverdue : loan.status === 'REPAID' ? styles.textRepaid : styles.textActive]}>{loan.isOverdue ? 'Payment overdue' : loan.status === 'REPAID' ? 'Fully repaid' : 'Payment outstanding'}</Text>
+                <View style={styles.heroFinancial}>
+                  <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={styles.amount}>{formatCurrency(loan.amount)}</Text>
+                  <View accessible accessibilityRole="text" accessibilityLabel={loan.isOverdue ? 'Payment overdue' : loan.status === 'REPAID' ? 'Fully repaid' : 'Payment outstanding'} style={[styles.status, loan.isOverdue ? styles.statusOverdue : loan.status === 'REPAID' ? styles.statusRepaid : styles.statusActive]}>
+                    <Ionicons name={loan.isOverdue ? 'alert-circle' : loan.status === 'REPAID' ? 'checkmark-circle' : 'time'} size={15} color={loan.isOverdue ? colors.danger : loan.status === 'REPAID' ? colors.success : colors.primaryDark} />
+                    <Text style={[styles.statusText, loan.isOverdue ? styles.textOverdue : loan.status === 'REPAID' ? styles.textRepaid : styles.textActive]}>{loan.isOverdue ? 'Payment overdue' : loan.status === 'REPAID' ? 'Fully repaid' : 'Payment outstanding'}</Text>
+                  </View>
                 </View>
               </View>
               <View style={styles.details}>
@@ -85,10 +87,11 @@ const styles = StyleSheet.create({
   contentDesktop: { maxWidth: layout.pageMax, paddingHorizontal: spacing.xxl, paddingTop: spacing.xl },
   nav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, back: { width: 44, height: 44, borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' }, navTitle: { ...type.h3, color: colors.ink }, navSpacer: { width: 44 },
   workspace: { gap: spacing.xl }, workspaceDesktop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xl }, recordColumn: { gap: spacing.lg }, recordColumnDesktop: { flex: 1.12 }, actionColumn: { gap: spacing.lg }, actionColumnDesktop: { flex: 0.88 },
-  hero: { backgroundColor: colors.surface, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.line, padding: spacing.xl, alignItems: 'flex-start', gap: spacing.md, ...shadow }, heroDesktop: { minHeight: 254, justifyContent: 'space-between' }, heroOverdue: { borderColor: colors.dangerLine },
-  heroLead: { flexDirection: 'row', alignItems: 'center', gap: spacing.md }, heroIdentity: { flex: 1, gap: 3 }, heroEyebrow: { ...type.micro, color: colors.muted },
+  hero: { backgroundColor: colors.surface, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.line, padding: spacing.xl, alignItems: 'flex-start', gap: spacing.xl, ...shadow }, heroDesktop: { minHeight: 232, justifyContent: 'space-between' }, heroOverdue: { borderColor: colors.dangerLine },
+  heroLead: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: spacing.md }, heroIdentity: { flex: 1, minWidth: 0, gap: 3 }, heroEyebrow: { ...type.micro, color: colors.muted },
+  heroFinancial: { gap: spacing.sm, alignItems: 'flex-start', maxWidth: '100%' },
   avatar: { width: 58, height: 58, borderRadius: 20, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }, avatarOverdue: { backgroundColor: colors.dangerSoft }, avatarRepaid: { backgroundColor: colors.successSoft }, avatarText: { fontSize: 18, fontWeight: '800', color: colors.ink },
-  name: { ...type.h2, color: colors.ink }, amount: { ...type.display, color: colors.ink, fontVariant: ['tabular-nums'] },
+  name: { ...type.h2, color: colors.ink }, amount: { ...type.display, color: colors.ink, fontVariant: ['tabular-nums'], maxWidth: '100%' },
   status: { borderRadius: radii.pill, paddingHorizontal: spacing.sm, paddingVertical: 7, flexDirection: 'row', alignItems: 'center', gap: 5 }, statusOverdue: { backgroundColor: colors.dangerSoft }, statusRepaid: { backgroundColor: colors.successSoft }, statusActive: { backgroundColor: colors.primarySoft }, statusText: { ...type.caption }, textOverdue: { color: colors.danger }, textRepaid: { color: colors.success }, textActive: { color: colors.primaryDark },
   details: { backgroundColor: colors.surface, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' }, row: { minHeight: 64, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line, gap: spacing.sm }, rowIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center' }, rowLabel: { ...type.body, color: colors.muted, flex: 1 }, rowValue: { ...type.bodyStrong, color: colors.ink },
   receiptPanel: { backgroundColor: colors.canvasLift, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.line, padding: spacing.lg },

@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Loan } from '@miniledger/shared';
-import { colors, radii, shadow, spacing, type } from '@/constants/theme';
+import { colors, controls, focusRing, radii, shadow, spacing, type } from '@/constants/theme';
 import { formatCurrency, formatDate, initials } from '@/lib/format';
 
 export function LoanCard({ loan, onPress, onRepay, repaying = false, wide = false }: { loan: Loan; onPress: () => void; onRepay: () => void; repaying?: boolean; wide?: boolean }) {
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
   const repaid = loan.status === 'REPAID';
   return (
     <View style={[styles.card, wide && styles.cardWide, loan.isOverdue && styles.overdueCard]}>
@@ -14,7 +17,11 @@ export function LoanCard({ loan, onPress, onRepay, repaying = false, wide = fals
         accessibilityLabel={`${loan.friendName}, ${formatCurrency(loan.amount)}, ${loan.isOverdue ? 'overdue' : repaid ? 'repaid' : `due ${formatDate(loan.dueDate)}`}`}
         accessibilityHint="Opens loan details"
         onPress={onPress}
-        style={({ pressed }) => [styles.main, wide && styles.mainWide, pressed && styles.pressed]}
+        onHoverIn={() => setHovered(true)}
+        onHoverOut={() => setHovered(false)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={({ pressed }) => [styles.main, wide && styles.mainWide, hovered && styles.hovered, focused && styles.focused, pressed && styles.pressed]}
       >
         <View style={styles.topRow}>
           <View style={[styles.avatar, loan.isOverdue && styles.overdueAvatar, repaid && styles.repaidAvatar]}>
@@ -73,6 +80,8 @@ const styles = StyleSheet.create({
   overdueRail: { position: 'absolute', top: 0, bottom: 0, left: 0, width: 4, backgroundColor: colors.danger },
   main: { padding: spacing.md },
   mainWide: { flex: 1, justifyContent: 'center' },
+  hovered: { backgroundColor: colors.surfaceHover },
+  focused: { backgroundColor: colors.canvasLift, ...focusRing },
   pressed: { opacity: 0.82, backgroundColor: colors.surfaceHover },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   avatar: { width: 46, height: 46, borderRadius: 16, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
@@ -81,7 +90,7 @@ const styles = StyleSheet.create({
   avatarText: { ...type.caption, fontSize: 13, color: colors.primaryDark },
   overdueAvatarText: { color: colors.danger },
   repaidAvatarText: { color: colors.success },
-  identity: { flex: 1, gap: 5 },
+  identity: { flex: 1, minWidth: 0, gap: 5 },
   name: { ...type.h3, color: colors.ink },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   meta: { ...type.caption, color: colors.muted, flexShrink: 1 },
@@ -102,7 +111,7 @@ const styles = StyleSheet.create({
   footerWide: { minWidth: 154, borderTopWidth: 0, borderLeftWidth: 1, borderLeftColor: colors.line, paddingLeft: spacing.sm },
   receiptLabel: { flexDirection: 'row', gap: 5, alignItems: 'center' },
   receiptText: { ...type.caption, color: colors.muted },
-  repay: { minHeight: 40, borderRadius: radii.sm, backgroundColor: colors.primarySoft, paddingHorizontal: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto' },
+  repay: { minHeight: controls.touch, borderRadius: radii.sm, backgroundColor: colors.primarySoft, paddingHorizontal: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto' },
   repayPressed: { opacity: 0.7 },
   repayText: { ...type.caption, color: colors.primaryDark },
   disabled: { opacity: 0.5 },

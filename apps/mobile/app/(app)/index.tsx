@@ -9,7 +9,7 @@ import { BrandMark } from '@/components/brand-mark';
 import { FadeInView } from '@/components/fade-in-view';
 import { ErrorState, LoadingState } from '@/components/state-view';
 import { LoanCard } from '@/components/loan-card';
-import { colors, layout, radii, shadow, spacing, type } from '@/constants/theme';
+import { colors, controls, layout, radii, shadow, spacing, type } from '@/constants/theme';
 import { useResponsive } from '@/hooks/use-responsive';
 import { api, ApiError } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -61,13 +61,14 @@ export default function DashboardScreen() {
   const isInitialLoading = loansQuery.isLoading || summaryQuery.isLoading;
   const error = loansQuery.error ?? summaryQuery.error;
   const totalCount = loansQuery.data?.loans.length ?? 0;
+  const overdueLoanCount = loansQuery.data?.loans.filter((loan) => loan.isOverdue).length ?? 0;
 
   const onAdd = () => router.push('/(app)/add-loan');
   const onSignOut = () => confirm({ title: 'Sign out?', message: 'Your private ledger will be removed from this device.', confirmLabel: 'Sign out', pendingLabel: 'Signing out…', destructive: true }, signOut);
 
   const overview = (
     <>
-      {summaryQuery.data ? <FadeInView delay={60}><SummaryPanel summary={summaryQuery.data} compact={width < 360} /></FadeInView> : summaryQuery.isLoading ? <SummarySkeleton /> : null}
+      {summaryQuery.data && loansQuery.data ? <FadeInView delay={60} style={isDesktop ? styles.summaryFill : styles.summaryNatural}><SummaryPanel summary={summaryQuery.data} overdueLoanCount={overdueLoanCount} compact={width < 360} fill={isDesktop} /></FadeInView> : summaryQuery.isLoading || loansQuery.isLoading ? <SummarySkeleton /> : null}
     </>
   );
 
@@ -127,7 +128,7 @@ export default function DashboardScreen() {
               </View>
               <View style={styles.overviewGrid}>
                 <View style={styles.summaryColumn}>{overview}</View>
-                {summaryQuery.data && loansQuery.data && <LedgerPulse summary={summaryQuery.data} loans={loansQuery.data.loans} onAdd={onAdd} />}
+                {loansQuery.data && <LedgerPulse loans={loansQuery.data.loans} onAdd={onAdd} />}
               </View>
               {sectionRow}
               {listStates}
@@ -171,14 +172,16 @@ export default function DashboardScreen() {
   );
 }
 
-function LedgerPulse({ summary, loans, onAdd }: { summary: Summary; loans: Loan[]; onAdd: () => void }) {
+function LedgerPulse({ loans, onAdd }: { loans: Loan[]; onAdd: () => void }) {
   const outstanding = loans.filter((loan) => loan.status === 'OUTSTANDING');
+  const repaid = loans.filter((loan) => loan.status === 'REPAID');
+  const overdueLoans = outstanding.filter((loan) => loan.isOverdue);
   const nextDue = [...outstanding].sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0];
-  const overdue = summary.overdueLoanCount > 0;
+  const overdue = overdueLoans.length > 0;
   const empty = loans.length === 0;
   const title = overdue ? 'Needs attention' : nextDue ? 'Everything is on track' : empty ? 'Ready for your first entry' : 'Everything is settled';
   const copy = overdue
-    ? `${summary.overdueLoanCount} ${summary.overdueLoanCount === 1 ? 'loan is' : 'loans are'} past due. Review the highlighted records below.`
+    ? `${overdueLoans.length} ${overdueLoans.length === 1 ? 'loan is' : 'loans are'} past due. Review the highlighted records below.`
     : nextDue
       ? `${nextDue.friendName} is next, due ${formatDate(nextDue.dueDate)}.`
       : empty
@@ -195,9 +198,9 @@ function LedgerPulse({ summary, loans, onAdd }: { summary: Summary; loans: Loan[
         </View>
       </View>
       <View style={styles.pulseStats}>
-        <View><Text style={styles.pulseNumber}>{summary.activeLoanCount}</Text><Text style={styles.pulseLabel}>Active</Text></View>
+        <View><Text style={styles.pulseNumber}>{outstanding.length}</Text><Text style={styles.pulseLabel}>Active</Text></View>
         <View style={styles.pulseDivider} />
-        <View><Text style={styles.pulseNumber}>{summary.repaidLoanCount}</Text><Text style={styles.pulseLabel}>Repaid</Text></View>
+        <View><Text style={styles.pulseNumber}>{repaid.length}</Text><Text style={styles.pulseLabel}>Repaid</Text></View>
       </View>
       {empty && <Pressable accessibilityRole="button" onPress={onAdd} style={styles.pulseAction}><Text style={styles.pulseActionText}>Add first loan</Text><Ionicons name="arrow-forward" size={16} color={colors.primaryDark} /></Pressable>}
     </View>
@@ -220,9 +223,9 @@ function TopBar({ onAdd, onSignOut, wide = false }: { onAdd: () => void; onSignO
   );
 }
 
-function SummaryPanel({ summary, compact = false }: { summary: Summary; compact?: boolean }) {
+function SummaryPanel({ summary, overdueLoanCount, compact = false, fill = false }: { summary: Summary; overdueLoanCount: number; compact?: boolean; fill?: boolean }) {
   return (
-    <View style={styles.summaryCard}>
+    <View style={[styles.summaryCard, fill && styles.summaryCardFill]}>
       <View style={styles.orbOne} /><View style={styles.orbTwo} />
       <View style={styles.summaryTop}>
         <View style={styles.summaryPrimary}><Text style={styles.summaryLabel}>STILL TO RECEIVE</Text><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.68} style={styles.summaryAmount}>{formatCurrency(summary.outstandingAmount)}</Text></View>
@@ -236,7 +239,7 @@ function SummaryPanel({ summary, compact = false }: { summary: Summary; compact?
         <View style={styles.statDivider} />
         <SummaryStat label="Overdue" value={formatCurrency(summary.overdueAmount)} tone={summary.overdueAmount > 0 ? 'danger' : undefined} compact={compact} />
       </View>
-      {summary.overdueLoanCount > 0 && <View style={styles.overdueCallout}><View style={styles.alertDot} /><Text style={styles.overdueCalloutText}>{summary.overdueLoanCount} {summary.overdueLoanCount === 1 ? 'loan needs' : 'loans need'} your attention</Text><Ionicons name="arrow-forward" size={15} color={colors.danger} /></View>}
+      {overdueLoanCount > 0 && <View style={styles.overdueCallout}><View style={styles.alertDot} /><Text style={styles.overdueCalloutText}>{overdueLoanCount} {overdueLoanCount === 1 ? 'loan needs' : 'loans need'} your attention</Text><Ionicons name="arrow-forward" size={15} color={colors.danger} /></View>}
     </View>
   );
 }
@@ -284,6 +287,8 @@ const styles = StyleSheet.create({
   deskTitleRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: spacing.xl },
   overviewGrid: { flexDirection: 'row', alignItems: 'stretch', gap: spacing.lg },
   summaryColumn: { flex: 1.55 },
+  summaryFill: { flex: 1 },
+  summaryNatural: {},
   privacyPill: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: colors.successSoft, borderWidth: 1, borderColor: colors.successLine, borderRadius: radii.pill, paddingHorizontal: spacing.sm, minHeight: 36 },
   privacyText: { ...type.caption, color: colors.success },
   pulseCard: { flex: 1, minWidth: 300, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radii.xl, padding: spacing.xl, gap: spacing.md },
@@ -299,18 +304,19 @@ const styles = StyleSheet.create({
   pulseNumber: { ...type.h2, color: colors.ink, fontVariant: ['tabular-nums'] },
   pulseLabel: { ...type.caption, color: colors.muted },
   pulseDivider: { width: 1, height: 32, backgroundColor: colors.line },
-  pulseAction: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 42, borderRadius: radii.sm, paddingHorizontal: spacing.sm, backgroundColor: colors.primarySoft },
+  pulseAction: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: controls.touch, borderRadius: radii.sm, paddingHorizontal: spacing.sm, backgroundColor: colors.primarySoft },
   pulseActionText: { ...type.caption, color: colors.primaryDark },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   topActions: { flexDirection: 'row', gap: spacing.xs },
-  addTop: { height: 42, borderRadius: 14, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.sm, gap: 4 },
+  addTop: { height: controls.touch, borderRadius: 14, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.sm, gap: 4 },
   addTopText: { ...type.caption, color: colors.white },
-  iconButton: { width: 42, height: 42, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
+  iconButton: { width: controls.touch, height: controls.touch, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
   heading: { gap: 4 },
-  eyebrow: { ...type.micro, color: colors.primary, letterSpacing: 1.1 },
+  eyebrow: { ...type.micro, color: colors.primaryDark, letterSpacing: 1.1 },
   title: { ...type.h1, color: colors.ink },
   subheading: { ...type.body, color: colors.muted },
   summaryCard: { backgroundColor: colors.elevated, borderRadius: radii.xl, borderWidth: 1, borderColor: colors.line, padding: spacing.xl, overflow: 'hidden', ...shadow },
+  summaryCardFill: { flex: 1, justifyContent: 'space-between' },
   summarySkeleton: { height: 190, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radii.xl, padding: spacing.xl, gap: spacing.sm, overflow: 'hidden' },
   skeletonLabel: { width: 104, height: 10, borderRadius: 5, backgroundColor: colors.line },
   skeletonAmount: { width: '58%', height: 36, borderRadius: 10, backgroundColor: colors.line },
@@ -340,7 +346,7 @@ const styles = StyleSheet.create({
   sectionTitle: { ...type.h2, color: colors.ink },
   sectionMeta: { ...type.caption, color: colors.muted },
   filters: { flexDirection: 'row', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radii.sm, padding: 3 },
-  filter: { paddingHorizontal: 9, minHeight: 34, justifyContent: 'center', borderRadius: 8 },
+  filter: { paddingHorizontal: 9, minHeight: controls.touch, justifyContent: 'center', borderRadius: 8 },
   filterActive: { backgroundColor: colors.elevated, borderWidth: 1, borderColor: colors.line },
   filterText: { ...type.caption, color: colors.muted },
   filterTextActive: { color: colors.ink },

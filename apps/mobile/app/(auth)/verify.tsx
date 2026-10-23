@@ -121,8 +121,8 @@ const styles = StyleSheet.create({
   errorText: { ...type.caption, color: colors.danger, flex: 1 },
   resendRow: { alignItems: 'center', gap: 5 },
   resendCopy: { ...type.caption, color: colors.muted },
-  resendLink: { ...type.bodyStrong, color: colors.primary, minHeight: 40, textAlignVertical: 'center' },
+  resendLink: { ...type.bodyStrong, color: colors.primaryDark, minHeight: 44, textAlignVertical: 'center' },
   edit: { alignSelf: 'center', flexDirection: 'row', gap: 6, alignItems: 'center', minHeight: 44 },
-  editText: { ...type.caption, color: colors.primary },
+  editText: { ...type.caption, color: colors.primaryDark },
 });
 

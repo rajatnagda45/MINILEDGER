@@ -6,7 +6,7 @@ import AddLoanScreen from '@/app/(app)/add-loan';
 import { api, ApiError } from '@/lib/api';
 import { createTestClient, TestQueryProvider } from './test-utils';
 
-jest.mock('expo-router', () => ({ router: { back: jest.fn(), replace: jest.fn() }, useNavigation: () => ({ dispatch: jest.fn() }) }));
+jest.mock('expo-router', () => ({ router: { back: jest.fn(), canGoBack: jest.fn(() => false), replace: jest.fn() }, useNavigation: () => ({ dispatch: jest.fn() }) }));
 jest.mock('@react-navigation/native', () => ({ usePreventRemove: jest.fn() }));
 jest.mock('@/components/fade-in-view', () => {
   const { View } = jest.requireActual('react-native');
@@ -35,6 +35,13 @@ async function fillValid(screen: RenderResult) {
   await fireEvent.changeText(screen.getByLabelText('Amount lent'), '1250.50');
   await fireEvent.changeText(screen.getByLabelText('Due date'), '2026-11-01');
 }
+
+it('returns to the dashboard when a directly opened form has no back history', async () => {
+  const screen = await render(<AddLoanScreen />, { wrapper: TestQueryProvider });
+  await fireEvent.press(screen.getByLabelText('Close'));
+  expect(router.replace).toHaveBeenCalledWith('/(app)');
+  expect(router.back).not.toHaveBeenCalled();
+});
 
 it('rejects invalid amount and date before calling the server', async () => {
   const screen = await render(<AddLoanScreen />, { wrapper: TestQueryProvider });

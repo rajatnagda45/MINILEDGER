@@ -96,6 +96,15 @@ it('renders server summary values, filters loans, and spells out overdue status'
   await screen.unmount();
 });
 
+it('keeps ledger-status counts consistent with the records returned for the list', async () => {
+  loans.mockResolvedValue({ loans: [activeLoan, overdueLoan, repaidLoan] });
+  summary.mockResolvedValue({ ...totals, activeLoanCount: 99, repaidLoanCount: 88, overdueLoanCount: 77 });
+  const screen = await render(<DashboardScreen />, { wrapper: TestQueryProvider });
+
+  expect(await screen.findByText('1 loan needs your attention')).toBeTruthy();
+  expect(screen.queryByText('77 loans need your attention')).toBeNull();
+});
+
 it('blocks repeated repayment activation while the first request is pending', async () => {
   loans.mockResolvedValue({ loans: [activeLoan] });
   summary.mockResolvedValue(totals);

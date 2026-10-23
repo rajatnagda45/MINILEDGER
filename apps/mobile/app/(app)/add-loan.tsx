@@ -90,7 +90,7 @@ export default function AddLoanScreen() {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={[styles.content, isDesktop && styles.contentDesktop]} keyboardShouldPersistTaps="handled">
           <View style={styles.nav}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => router.back()} style={styles.iconButton}><Ionicons name="close" size={23} color={colors.ink} /></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)')} style={styles.iconButton}><Ionicons name="close" size={23} color={colors.ink} /></Pressable>
             <View style={styles.navTitle}><Text style={styles.navEyebrow}>NEW ENTRY</Text><Text style={styles.navHeading}>Add a loan</Text></View>
             <View style={styles.navSpacer} />
           </View>
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   contentDesktop: { maxWidth: layout.pageMax, paddingHorizontal: spacing.xxl, paddingTop: spacing.xl, gap: spacing.xl },
   nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   iconButton: { width: 44, height: 44, borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
-  navTitle: { alignItems: 'center' }, navEyebrow: { ...type.micro, color: colors.primary }, navHeading: { ...type.h3, color: colors.ink }, navSpacer: { width: 44 },
+  navTitle: { alignItems: 'center' }, navEyebrow: { ...type.micro, color: colors.primaryDark }, navHeading: { ...type.h3, color: colors.ink }, navSpacer: { width: 44 },
   intro: { gap: spacing.xs, paddingTop: spacing.xs }, introTitle: { ...type.h1, color: colors.ink }, introCopy: { ...type.body, color: colors.inkSoft },
   workspace: { gap: spacing.lg },
   workspaceDesktop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xl },
