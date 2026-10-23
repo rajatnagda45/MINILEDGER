@@ -75,6 +75,10 @@ export const api = {
   verifyOtp: (phoneNumber: string, otp: string) => request<AuthSession>('/auth/verify-otp', {
     method: 'POST', body: JSON.stringify({ phoneNumber, otp }),
   }),
+  // Validate a persisted bearer token through an existing authenticated route.
+  // The summary response is intentionally discarded: React Query remains the
+  // source of cached dashboard data after authentication restoration completes.
+  validateSession: async () => { await request<Summary>('/summary'); },
   loans: (signal?: AbortSignal) => request<{ loans: Loan[] }>('/loans', {}, signal),
   loan: (id: string, signal?: AbortSignal) => request<{ loan: Loan }>(`/loans/${id}`, {}, signal),
   summary: (signal?: AbortSignal) => request<Summary>('/summary', {}, signal),

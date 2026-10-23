@@ -37,6 +37,14 @@ it('uses browser-local storage on web without sending the token elsewhere', asyn
   expect(SecureStore.setItemAsync).not.toHaveBeenCalled();
 });
 
+it('does not silently pretend to persist when browser storage is unavailable', async () => {
+  Object.defineProperty(Platform, 'OS', { value: 'web' });
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: undefined });
+
+  await expect(tokenStorage.set('web-token')).rejects.toThrow('Browser storage is unavailable');
+  await expect(tokenStorage.get()).rejects.toThrow('Browser storage is unavailable');
+});
+
 it('uses device-only SecureStore accessibility on native', async () => {
   Object.defineProperty(Platform, 'OS', { value: 'ios' });
   (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('native-token');

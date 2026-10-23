@@ -58,3 +58,18 @@ it('uses the configured unauthorized handler for expired protected requests', as
   await expect(api.summary()).rejects.toEqual(new ApiError(401, 'SESSION_EXPIRED', 'Sign in again.'));
   expect(unauthorized).toHaveBeenCalledTimes(1);
 });
+
+it('validates a restored session through the existing authenticated summary route', async () => {
+  configureApi('saved-token');
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({ currency: 'INR', totalLent: 0, totalRepaid: 0, outstandingAmount: 0, overdueAmount: 0, activeLoanCount: 0, repaidLoanCount: 0, overdueLoanCount: 0 }),
+  }) as jest.Mock;
+
+  await expect(api.validateSession()).resolves.toBeUndefined();
+  expect(global.fetch).toHaveBeenCalledWith(
+    expect.stringMatching(/\/summary$/),
+    expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer saved-token' }) }),
+  );
+});
