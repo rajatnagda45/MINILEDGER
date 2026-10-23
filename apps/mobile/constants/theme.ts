@@ -13,12 +13,16 @@ export const colors = {
   ink: '#F2F5FA',
   inkSoft: '#A5B0C2',
   muted: '#7F8BA0',
+  disabled: '#667187',
   // Separators
   line: '#303A4B',
   lineSoft: '#242D3B',
   // Primary action: electric blue (primaryDark is the lighter on-dark accent)
   // White normal-sized button text reaches WCAG AA on this blue (4.76:1).
   primary: '#496ADF',
+  // Hover remains bright while preserving AA contrast with white button text.
+  primaryHover: '#4F6FDC',
+  primaryPressed: '#3E5BC4',
   primaryDark: '#93A9FF',
   primarySoft: '#1E2A49',
   // Deep brand panel (login product side)
@@ -40,6 +44,8 @@ export const colors = {
 
 export const spacing = { xxs: 4, xs: 8, sm: 12, md: 16, lg: 20, xl: 24, xxl: 32, xxxl: 40 } as const;
 export const radii = { sm: 10, md: 16, lg: 22, xl: 28, pill: 999 } as const;
+export const controls = { compact: 44, touch: 44, default: 54, input: 56 } as const;
+export const icons = { sm: 16, md: 20, lg: 24 } as const;
 
 // Motion tokens — short and purposeful for a financial utility.
 export const motion = {
@@ -63,6 +69,13 @@ export const shadow = Platform.select({
   android: { elevation: 4 },
   default: { boxShadow: '0 12px 32px rgba(0, 0, 0, 0.38)' },
 });
+
+// Used wherever the browser's native outline is replaced by a themed control.
+// Native platforms rely on their accessibility focus treatment.
+export const focusRing = Platform.select({
+  web: { boxShadow: '0 0 0 3px rgba(147, 169, 255, 0.28)' },
+  default: {},
+}) ?? {};
 
 export const type = {
   display: { fontSize: 34, lineHeight: 40, fontWeight: '800' as const, letterSpacing: -1.1 },

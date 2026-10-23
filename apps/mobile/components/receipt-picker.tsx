@@ -2,7 +2,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radii, spacing, type } from '@/constants/theme';
+import { colors, controls, radii, spacing, type } from '@/constants/theme';
 import type { ReceiptAsset } from '@/lib/api';
 
 function toAsset(result: ImagePicker.ImagePickerResult): ReceiptAsset | null {
@@ -56,8 +56,8 @@ export function ReceiptPicker({ value, onChange, disabled }: { value: ReceiptAss
             <Text style={styles.filename} numberOfLines={1}>{value.name}</Text>
             <Text style={styles.meta}>{[value.mimeType.replace('image/', '').toUpperCase(), sizeLabel(byteSize)].filter(Boolean).join(' · ')}</Text>
             <View style={styles.previewActions}>
-              <Pressable accessibilityRole="button" accessibilityLabel="Replace receipt" disabled={disabled} onPress={pickFromLibrary} style={styles.textAction}><Text style={styles.textActionLabel}>Replace</Text></Pressable>
-              <Pressable accessibilityRole="button" accessibilityLabel="Remove receipt" disabled={disabled} onPress={remove} style={styles.textAction}><Text style={[styles.textActionLabel, styles.removeLabel]}>Remove</Text></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Replace receipt" accessibilityState={{ disabled: Boolean(disabled) }} disabled={disabled} onPress={pickFromLibrary} style={({ pressed }) => [styles.textAction, pressed && styles.actionPressed, disabled && styles.disabled]}><Text style={styles.textActionLabel}>Replace</Text></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Remove receipt" accessibilityState={{ disabled: Boolean(disabled) }} disabled={disabled} onPress={remove} style={({ pressed }) => [styles.textAction, pressed && styles.actionPressed, disabled && styles.disabled]}><Text style={[styles.textActionLabel, styles.removeLabel]}>Remove</Text></Pressable>
             </View>
           </View>
         </View>
@@ -66,11 +66,11 @@ export function ReceiptPicker({ value, onChange, disabled }: { value: ReceiptAss
           <View style={styles.dropIcon}><Ionicons name="receipt-outline" size={22} color={colors.primary} /></View>
           <Text style={styles.dropCopy}>Attach a photo of the receipt so you have a record of this loan.</Text>
           <View style={styles.dropActions}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Choose a photo" disabled={disabled} onPress={pickFromLibrary} style={styles.chip}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Choose a photo" accessibilityState={{ disabled: Boolean(disabled) }} disabled={disabled} onPress={pickFromLibrary} style={({ pressed }) => [styles.chip, pressed && styles.chipPressed, disabled && styles.disabled]}>
               <Ionicons name="image-outline" size={17} color={colors.primary} /><Text style={styles.chipLabel}>Choose photo</Text>
             </Pressable>
             {Platform.OS !== 'web' && (
-              <Pressable accessibilityRole="button" accessibilityLabel="Take a photo" disabled={disabled} onPress={takePhoto} style={styles.chip}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Take a photo" accessibilityState={{ disabled: Boolean(disabled) }} disabled={disabled} onPress={takePhoto} style={({ pressed }) => [styles.chip, pressed && styles.chipPressed, disabled && styles.disabled]}>
                 <Ionicons name="camera-outline" size={17} color={colors.primary} /><Text style={styles.chipLabel}>Take photo</Text>
               </Pressable>
             )}
@@ -89,7 +89,8 @@ const styles = StyleSheet.create({
   dropIcon: { width: 42, height: 42, borderRadius: 13, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   dropCopy: { ...type.caption, color: colors.inkSoft },
   dropActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  chip: { minHeight: 40, borderRadius: radii.sm, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.sm },
+  chip: { minHeight: controls.compact, borderRadius: radii.sm, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.sm },
+  chipPressed: { backgroundColor: colors.surfaceHover, borderColor: colors.primaryDark },
   chipLabel: { ...type.caption, color: colors.primaryDark },
   preview: { flexDirection: 'row', gap: spacing.sm, borderWidth: 1, borderColor: colors.line, borderRadius: radii.md, backgroundColor: colors.surface, padding: spacing.sm },
   thumb: { width: 60, height: 60, borderRadius: radii.sm, backgroundColor: colors.canvas },
@@ -98,8 +99,10 @@ const styles = StyleSheet.create({
   meta: { ...type.caption, color: colors.inkSoft },
   previewActions: { flexDirection: 'row', gap: spacing.md, marginTop: 2 },
   textAction: { minHeight: 36, justifyContent: 'center' },
+  actionPressed: { opacity: 0.72 },
   textActionLabel: { ...type.caption, color: colors.primaryDark },
   removeLabel: { color: colors.danger },
   error: { ...type.caption, color: colors.danger },
   hint: { ...type.caption, color: colors.inkSoft },
+  disabled: { opacity: 0.5 },
 });

@@ -39,3 +39,15 @@ it('returns a normalized selected image and reports permission denial', async ()
   await fireEvent.press(screen.getByLabelText('Choose a photo'));
   expect(await screen.findByText('Allow photo access to attach a receipt.')).toBeTruthy();
 });
+
+it('exposes and enforces the disabled state while a receipt mutation is pending', async () => {
+  const onChange = jest.fn();
+  const screen = await render(<ReceiptPicker value={null} onChange={onChange} disabled />);
+  const choose = screen.getByLabelText('Choose a photo');
+
+  expect(choose).toBeDisabled();
+  expect(choose.props.accessibilityState.disabled).toBe(true);
+  await fireEvent.press(choose);
+  expect(requestPermission).not.toHaveBeenCalled();
+  expect(onChange).not.toHaveBeenCalled();
+});

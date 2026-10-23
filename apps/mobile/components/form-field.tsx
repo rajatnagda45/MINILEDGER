@@ -1,6 +1,6 @@
 import { forwardRef, useState } from 'react';
 import { Platform, StyleSheet, Text, TextInput, View, type TextInputProps, type TextStyle } from 'react-native';
-import { colors, radii, spacing, type } from '@/constants/theme';
+import { colors, controls, focusRing, radii, spacing, type } from '@/constants/theme';
 
 interface FormFieldProps extends TextInputProps {
   label: string;
@@ -43,8 +43,8 @@ export const FormField = forwardRef<TextInput, FormFieldProps>(function FormFiel
 const styles = StyleSheet.create({
   group: { gap: spacing.xs },
   label: { ...type.caption, color: colors.ink, textTransform: 'uppercase' },
-  inputShell: { minHeight: 56, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, borderRadius: radii.md, flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md },
-  inputShellFocused: { borderColor: colors.primary },
+  inputShell: { minHeight: controls.input, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, borderRadius: radii.md, flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md },
+  inputShellFocused: { borderColor: colors.primaryDark, ...focusRing },
   inputError: { borderColor: colors.danger, backgroundColor: colors.dangerSoft },
   prefix: { fontSize: 16, fontWeight: '600', color: colors.ink, paddingRight: spacing.sm, borderRightWidth: 1, borderRightColor: colors.line, marginRight: spacing.sm },
   // No lineHeight here: on a single-line web <input> a tall line-height pushes

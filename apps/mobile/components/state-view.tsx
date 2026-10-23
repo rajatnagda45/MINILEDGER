@@ -32,6 +32,6 @@ const styles = StyleSheet.create({
   title: { ...type.h3, color: colors.ink },
   message: { ...type.body, color: colors.muted, textAlign: 'center' },
   retry: { marginTop: spacing.xs, minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.lg },
-  retryText: { ...type.bodyStrong, color: colors.primary },
+  retryText: { ...type.bodyStrong, color: colors.primaryDark },
 });
 

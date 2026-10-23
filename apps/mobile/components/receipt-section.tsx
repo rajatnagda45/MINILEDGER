@@ -4,7 +4,7 @@ import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { ReceiptMeta } from '@miniledger/shared';
-import { colors, radii, spacing, type } from '@/constants/theme';
+import { colors, controls, radii, spacing, type } from '@/constants/theme';
 import { api, ApiError, type ReceiptAsset } from '@/lib/api';
 import { useInteraction } from '@/providers/interaction-provider';
 import { Button } from './button';
@@ -84,9 +84,9 @@ export function ReceiptSection({ loanId, receipt }: { loanId: string; receipt: R
             <Text style={styles.cardMeta}>{receipt.mimeType.replace('image/', '').toUpperCase()} · {sizeLabel(receipt.byteSize)}</Text>
             <Text style={styles.cardSub}>Added {new Date(receipt.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</Text>
             <View style={styles.actions}>
-              <Pressable accessibilityRole="button" onPress={() => setViewerOpen(true)} style={styles.action}><Ionicons name="expand-outline" size={15} color={colors.primaryDark} /><Text style={styles.actionText}>View</Text></Pressable>
-              <Pressable accessibilityRole="button" onPress={() => { setDraft(null); setReplacing(true); }} style={styles.action}><Ionicons name="swap-horizontal-outline" size={15} color={colors.primaryDark} /><Text style={styles.actionText}>Replace</Text></Pressable>
-              <Pressable accessibilityRole="button" disabled={remove.isPending} onPress={confirmRemove} style={styles.action}><Ionicons name="trash-outline" size={15} color={colors.danger} /><Text style={[styles.actionText, styles.removeText]}>{remove.isPending ? 'Removing…' : 'Remove'}</Text></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="View receipt" onPress={() => setViewerOpen(true)} style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}><Ionicons name="expand-outline" size={15} color={colors.primaryDark} /><Text style={styles.actionText}>View</Text></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Replace receipt" onPress={() => { setDraft(null); setReplacing(true); }} style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}><Ionicons name="swap-horizontal-outline" size={15} color={colors.primaryDark} /><Text style={styles.actionText}>Replace</Text></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Remove receipt" accessibilityState={{ disabled: remove.isPending, busy: remove.isPending }} disabled={remove.isPending} onPress={confirmRemove} style={({ pressed }) => [styles.action, pressed && styles.actionPressed, remove.isPending && styles.actionDisabled]}><Ionicons name="trash-outline" size={15} color={colors.danger} /><Text style={[styles.actionText, styles.removeText]}>{remove.isPending ? 'Removing…' : 'Remove'}</Text></Pressable>
             </View>
           </View>
         </View>
@@ -96,7 +96,7 @@ export function ReceiptSection({ loanId, receipt }: { loanId: string; receipt: R
           {upload.isPending && <View style={styles.uploading} accessibilityLiveRegion="polite"><ActivityIndicator color={colors.primary} /><Text style={styles.uploadingText}>Uploading receipt…</Text></View>}
           {upload.isError && draft && <Button label="Retry upload" variant="secondary" onPress={() => uploadDraft(draft)} />}
           {replacing && !upload.isPending && (
-            <Pressable accessibilityRole="button" onPress={() => { setReplacing(false); setDraft(null); }} style={styles.cancel}><Text style={styles.cancelText}>Keep current receipt</Text></Pressable>
+            <Pressable accessibilityRole="button" onPress={() => { setReplacing(false); setDraft(null); }} style={({ pressed }) => [styles.cancel, pressed && styles.actionPressed]}><Text style={styles.cancelText}>Keep current receipt</Text></Pressable>
           )}
         </View>
       )}
@@ -123,13 +123,15 @@ const styles = StyleSheet.create({
   cardMeta: { ...type.bodyStrong, color: colors.ink },
   cardSub: { ...type.caption, color: colors.muted },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: 4 },
-  action: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 36 },
+  action: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: controls.touch },
+  actionPressed: { opacity: 0.72 },
+  actionDisabled: { opacity: 0.5 },
   actionText: { ...type.caption, color: colors.primaryDark },
   removeText: { color: colors.danger },
   pickerWrap: { gap: spacing.sm },
   uploading: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   uploadingText: { ...type.caption, color: colors.muted },
-  cancel: { alignSelf: 'flex-start', minHeight: 36, justifyContent: 'center' },
+  cancel: { alignSelf: 'flex-start', minHeight: controls.touch, justifyContent: 'center' },
   cancelText: { ...type.caption, color: colors.primaryDark },
   viewer: { flex: 1, backgroundColor: 'rgba(11,20,40,0.94)', alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   viewerClose: { position: 'absolute', top: spacing.xl, right: spacing.lg, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center', zIndex: 2 },
