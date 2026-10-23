@@ -5,7 +5,7 @@ MiniLedger is a focused mobile lending tracker for money lent to friends. It com
 ## What it does
 
 - Passwordless Indian mobile login with a six-digit development OTP printed by the API
-- Secure session persistence using Expo SecureStore on native devices
+- Validated session persistence using Expo SecureStore on native devices and browser storage on web
 - Server-calculated total lent, repaid, outstanding, and overdue amounts
 - Loan creation with client and server validation
 - Strong visual treatment for overdue loans without relying on colour alone
@@ -15,7 +15,7 @@ MiniLedger is a focused mobile lending tracker for money lent to friends. It com
 - User ownership checks on every protected loan operation
 - Exact money storage in integer paise
 - Optional receipt photo per loan, with secure upload, private storage, and authenticated preview
-- 97 automated tests: 27 mobile component/integration tests plus 70 backend tests covering authentication, production configuration, OTP boundaries, JWT algorithm pinning, loans, ownership, dates, summaries, receipt validation and cleanup consistency, deterministic receipt concurrency, filesystem permissions, request failure classification, and a real-PostgreSQL concurrent-repayment integration test
+- 124 automated tests: 54 mobile component/integration tests plus 70 backend tests covering authentication restoration, protected routing, production configuration, OTP boundaries, JWT algorithm pinning, loans, ownership, dates, summaries, receipt validation and cleanup consistency, deterministic receipt concurrency, filesystem permissions, request failure classification, and a real-PostgreSQL concurrent-repayment integration test
 
 The required login, lending, repayment, and summary journey is complete and tested, and the optional receipt-photo bonus is implemented end to end (see [Receipts](#receipts)).
 
@@ -56,9 +56,9 @@ Motion is restrained and purposeful (`components/fade-in-view.tsx`): a short fad
 
 ## Screenshots
 
-Captured from the running web build against the seeded PostgreSQL database, with real session data.
+Captured on 23 October 2026 from the running web build against the seeded PostgreSQL database, with real session data. The desktop gallery reflects the latest login, dashboard, and add-loan implementation.
 
-**Desktop — 1440px**
+**Desktop — 1470px browser viewport**
 
 | Login | Dashboard | Add loan |
 | --- | --- | --- |
